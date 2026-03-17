@@ -1,0 +1,8 @@
+.env
+.venv/
+data/beliefbank/beliefbank_augmented*.json
+data/beliefbank/beliefbank-data-sep2021.zip
+data/beliefbank/calibration_facts.json
+data/beliefbank/constraints_v2.json
+data/beliefbank/relation_vocabulary.txt
+data/beliefbank/silver_facts.json
