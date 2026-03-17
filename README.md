@@ -1,4 +1,7 @@
-# [Logically Consistent Language Models via Neuro-Symbolic Integration](https://arxiv.org/abs/2409.13724)
+# CS273P-LTN-LLM
+
+Based on [Logically Consistent Language Models via Neuro-Symbolic Integration](https://arxiv.org/abs/2409.13724).
+
 [![arXiv](https://img.shields.io/badge/arXiv-2409.13724-b31b1b.svg?style=for-the-badge)](https://arxiv.org/abs/2409.13724)
 ![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
 
