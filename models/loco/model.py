@@ -314,16 +314,24 @@ class QA(nn.Module):
     def infer_fact_prob(self, quests:List[str]):
         """ Get single fact probabilities """
         self.model.eval()
+        return self._get_fact_probabilities(quests=quests, label=FALSETRUE[1])
+
+    def get_fact_probabilities(self, statements:List[str], label=None):
+        """ Differentiable predicate scores for fact statements. """
+        self.model.train()
+        if label is None:
+            label = FALSETRUE[1]
+        return self._get_fact_probabilities(quests=statements, label=label)
+
+    def _get_fact_probabilities(self, quests:List[str], label:str):
         if self.is_seq2seq():
-            return self.__seq2seq_infer_fact_prob(quests)
-
+            return self.__seq2seq_get_fact_probabilities(quests, label)
         elif self.is_decoder():
-            return self.__decoder_infer_fact_prob(quests)
+            return self.__decoder_get_fact_probabilities(quests, label)
+        raise Exception("Unsupported model type.")
 
-    def __decoder_infer_fact_prob(self, quests:List[str]):
-        """ Get single fact probabilities """
-        self.model.eval()
-        targets_sents = [FALSETRUE[1] for idx in range(len(quests))]
+    def __decoder_get_fact_probabilities(self, quests:List[str], label:str):
+        targets_sents = [prompt_answer(self.get_model_type(), label) for _ in range(len(quests))]
         return gpt_get_target_probs(
             model=self.model, 
             tokenizer=self.tokenizer, 
@@ -332,10 +340,8 @@ class QA(nn.Module):
             gpu_id=self.gpu_id
         )
 
-    def __seq2seq_infer_fact_prob(self, quests:List[str]):
-        """ Get single fact probabilities """
-        self.model.eval()
-        positive_labels = [prompt_answer(self.get_model_type(), FALSETRUE[1]) for idx in range(len(quests))]
+    def __seq2seq_get_fact_probabilities(self, quests:List[str], label:str):
+        positive_labels = [prompt_answer(self.get_model_type(), label) for _ in range(len(quests))]
         positive_answ = self.tokenizer(positive_labels, padding=True, return_tensors="pt")
         positive_masked_output = positive_answ.input_ids.masked_fill(positive_answ.input_ids == self.tokenizer.pad_token_id, -100)
         in_premise = self.tokenizer(quests, padding=True, return_tensors="pt")
@@ -372,84 +378,12 @@ class QA(nn.Module):
         """
         self.model.train()
         
-        if self.is_seq2seq():
-            return self.__seq2seq_get_formula_beliefs(s1, s2, label)
-
-        elif self.is_decoder():
-            return self.__decoder_get_formula_beliefs(s1, s2, label)
-
-    def __seq2seq_get_formula_beliefs(self, s1, s2, label=None):
-        """ 
-            Train: fine-tuning on whole prompts
-            Inputs:
-                s1                List[str]   formatted antecedent facts prompts
-                s2              List[str]   formatted consequent facts prompts 
-            Outputs:
-                s1_probs           Tensor      LM probabilities of ant. facts
-                s2_probs        Tensor      LM probabilities of cons. facts
-                cond_s2_probs   Tensor      LM probabilities of cons. facts conditioned on antecedents (in-context assumption)
-        """
-        if label is None: label = FALSETRUE[1]
-        positive_labels = [prompt_answer(self.get_model_type(), label) for idx in range(len(s1))]
-        positive_answ = self.tokenizer(positive_labels, padding=True, return_tensors="pt")
-        positive_masked_output = positive_answ.input_ids.masked_fill(
-            positive_answ.input_ids == self.tokenizer.pad_token_id, -100
+        if label is None:
+            label = FALSETRUE[1]
+        return (
+            self.get_fact_probabilities(s1, label=label),
+            self.get_fact_probabilities(s2, label=label),
         )
-
-        # ---- Factual: s1
-        in_s1 = self.tokenizer(s1, padding=True, return_tensors="pt")
-        outputs = self.model(input_ids=in_s1.input_ids.to(self.gpu_id), labels=positive_answ.input_ids.to(self.gpu_id))
-        s1_probs, _ = seq2seq_get_target_probs(outputs.logits.to(self.gpu_id), positive_masked_output.to(self.gpu_id), should_reduce=False) 
-        s1_probs = s1_probs.exp().unsqueeze(-1)
-
-        # ---- Factual: s2
-        in_s2 = self.tokenizer(s2, padding=True, return_tensors="pt")
-        outputs = self.model(input_ids=in_s2.input_ids.to(self.gpu_id), labels=positive_answ.input_ids.to(self.gpu_id),)
-        s2_probs, _ = seq2seq_get_target_probs(outputs.logits.to(self.gpu_id), positive_masked_output.to(self.gpu_id), should_reduce=False) 
-        s2_probs = s2_probs.exp().unsqueeze(-1)  
-
-        return s1_probs, s2_probs
-
-    def __decoder_get_formula_beliefs(self, s1, s2, label=None):
-        """ 
-            Train: fine-tuning on whole prompts
-            Inputs:
-                s1                List[str]   formatted antecedent facts prompts
-                s2              List[str]   formatted consequent facts prompts 
-            Outputs:
-                s1_probs           Tensor      LM probabilities of ant. facts
-                s2_probs        Tensor      LM probabilities of cons. facts
-                cond_s2_probs   Tensor      LM probabilities of cons. facts conditioned on antecedents (in-context assumption)
-        """
-        if label is None: label = FALSETRUE[1]
-        positive_labels = [prompt_answer(self.get_model_type(), label) for idx in range(len(s1))]
-        # ---- Factual: s1
-        s1_probs = gpt_get_target_probs(
-            model=self.model, 
-            tokenizer=self.tokenizer, 
-            inputs=s1,
-            targets=positive_labels,
-            gpu_id=self.gpu_id
-        )
-        # ---- Factual: s2
-        s2_probs = gpt_get_target_probs(
-            model=self.model, 
-            tokenizer=self.tokenizer, 
-            inputs=s2,
-            targets=positive_labels,
-            gpu_id=self.gpu_id
-        )
-        # ---- SL: conditioned s2
-        # assuming the s1 is always to true
-        cond_hypoths = [f"{p} {positive_labels[idx]} {s2[idx]}" for idx, p in enumerate(s1)]
-        cond_s2_probs = gpt_get_target_probs(
-            model=self.model, 
-            tokenizer=self.tokenizer, 
-            inputs=cond_hypoths,
-            targets=positive_labels,
-            gpu_id=self.gpu_id
-        )
-        return s1_probs, s2_probs
 
     def get_perplexity(self, data, window_size=512):
         """ Computes perplexity as in https://huggingface.co/docs/transformers/en/perplexity """

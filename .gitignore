@@ -13,3 +13,5 @@ data/beliefbank/calibration_facts.json
 data/beliefbank/constraints_v2.json
 data/beliefbank/relation_vocabulary.txt
 data/beliefbank/silver_facts.json
+__pycache__/
+*.pyc

@@ -1,21 +1,31 @@
 import json
 import os
-import torch.utils.data as data
-from typing import List
 import random
+from typing import Dict, List
+
 import torch
+import torch.utils.data as data
+
 from models.loco.prompts import *
 from .dataset import *
 
+DEFAULT_CONSTRAINTS_PATH = os.path.join("data", "beliefbank", "constraints_v2.json")
+DEFAULT_CALIBRATION_FACTS_PATH = os.path.join("data", "beliefbank", "calibration_facts.json")
+DEFAULT_SILVER_FACTS_PATH = os.path.join("data", "beliefbank", "silver_facts.json")
+DEFAULT_AUGMENTED_RULES_PATH = os.path.join("data", "beliefbank", "beliefbank_augmented.json")
 
-def get_dataset(model_type:str):
+
+def get_dataset(model_type: str, config: dict | None = None):
     """ Load and parse from file to torch.Dataset """
+    config = config or {}
+    constraints_path = config.get("constraints_path", DEFAULT_CONSTRAINTS_PATH)
+    calibration_facts_path = config.get("calibration_facts_path", DEFAULT_CALIBRATION_FACTS_PATH)
+    silver_facts_path = config.get("silver_facts_path", DEFAULT_SILVER_FACTS_PATH)
+    rules_path = config.get("rules_path", DEFAULT_AUGMENTED_RULES_PATH)
+    rule_source = config.get("rule_source", "legacy")
+    logic_backend = config.get("logic_backend", "sdd")
 
     # Data loading
-    constraints_path = os.path.join("data", "beliefbank", "constraints_v2.json")
-    calibration_facts_path = os.path.join("data", "beliefbank", "calibration_facts.json")
-    silver_facts_path = os.path.join("data", "beliefbank", "silver_facts.json")
-
     constraints = Constraints(constraints_path=constraints_path, model_type=model_type)
     silver_facts = Facts(constraints=constraints, facts_path=silver_facts_path, model_type=model_type)
     calibration_facts = Facts(constraints=constraints, facts_path=calibration_facts_path, model_type=model_type)
@@ -33,7 +43,7 @@ def get_dataset(model_type:str):
     test_calibration_facts = TorchDataset(calibration_splits["test"])
     test_silver_facts = TorchDataset(silver_splits["test"])
 
-    return {
+    data = {
         "constraints": {
             "train": train_constraints, # grounded
             "all": constraints, # set of links
@@ -52,6 +62,193 @@ def get_dataset(model_type:str):
             } 
         }
     }
+
+    if logic_backend == "ltn":
+        templates, uncountables = Facts.get_language_templates(
+            templates_path=os.path.join("data", "beliefbank", "templates.json"),
+            uncountables_path=os.path.join("data", "beliefbank", "non_countable.txt"),
+        )
+        normalized_rules = get_normalized_rules(
+            constraints_path=constraints_path,
+            rules_path=rules_path,
+            rule_source=rule_source,
+        )
+        data["rules"] = {
+            "all": normalized_rules,
+            "train": TorchDataset(
+                ground_rules(
+                    rules=normalized_rules,
+                    facts=calibration_splits["train"],
+                    templates=templates,
+                    uncountables=uncountables,
+                )
+            ),
+            "val": {
+                "calibration": ground_rules(
+                    rules=normalized_rules,
+                    facts=calibration_splits["val"],
+                    templates=templates,
+                    uncountables=uncountables,
+                ),
+            },
+            "test": {
+                "calibration": ground_rules(
+                    rules=normalized_rules,
+                    facts=calibration_facts.get_whole_set(),
+                    templates=templates,
+                    uncountables=uncountables,
+                ),
+                "silver": ground_rules(
+                    rules=normalized_rules,
+                    facts=silver_facts.get_whole_set(),
+                    templates=templates,
+                    uncountables=uncountables,
+                ),
+            },
+        }
+
+    return data
+
+
+def normalize_literal(predicate: str, positive: bool = True) -> dict:
+    return {
+        "predicate": predicate,
+        "positive": bool(positive),
+    }
+
+
+def normalize_legacy_rules(constraints_path: str) -> List[dict]:
+    normalized = []
+    for idx, rule in enumerate(Constraints.get_links(constraints_path)):
+        normalized.append(
+            {
+                "id": f"legacy::{idx}",
+                "source": "legacy",
+                "rule_type": "universal",
+                "antecedents": [normalize_literal(rule["antecedent"], rule["s_antecedent"])],
+                "consequents": [normalize_literal(rule["consequent"], rule["s_consequent"])],
+                "atoms": [],
+            }
+        )
+    return normalized
+
+
+def normalize_augmented_rules(rules_path: str) -> List[dict]:
+    if not os.path.exists(rules_path):
+        return []
+
+    with open(rules_path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    augmented_rules = payload.get("augmented_constraints", [])
+    normalized = []
+    for idx, rule in enumerate(augmented_rules):
+        rule_type = rule["type"]
+        sample = {
+            "id": f"augmented::{idx}",
+            "source": "augmented",
+            "rule_type": rule_type,
+            "antecedents": [],
+            "consequents": [],
+            "atoms": [],
+        }
+        if rule_type == "universal":
+            sample["antecedents"] = [normalize_literal(rule["antecedent"])]
+            sample["consequents"] = [normalize_literal(rule["consequent"])]
+        elif rule_type == "equivalence":
+            sample["antecedents"] = [normalize_literal(rule["left"])]
+            sample["consequents"] = [normalize_literal(rule["right"])]
+        elif rule_type == "and_implies":
+            sample["antecedents"] = [normalize_literal(predicate) for predicate in rule["antecedents"]]
+            sample["consequents"] = [normalize_literal(rule["consequent"])]
+        elif rule_type == "or_implies":
+            sample["antecedents"] = [normalize_literal(predicate) for predicate in rule["antecedents"]]
+            sample["consequents"] = [normalize_literal(rule["consequent"])]
+        elif rule_type == "xor":
+            sample["atoms"] = [normalize_literal(predicate) for predicate in rule["atoms"]]
+        else:
+            continue
+        normalized.append(sample)
+    return normalized
+
+
+def deduplicate_rules(rules: List[dict]) -> List[dict]:
+    seen = set()
+    deduplicated = []
+    for rule in rules:
+        key = json.dumps(
+            {
+                "rule_type": rule["rule_type"],
+                "antecedents": rule["antecedents"],
+                "consequents": rule["consequents"],
+                "atoms": rule["atoms"],
+            },
+            sort_keys=True,
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduplicated.append(rule)
+    return deduplicated
+
+
+def get_normalized_rules(constraints_path: str, rules_path: str, rule_source: str) -> List[dict]:
+    if rule_source == "auto":
+        rule_source = "hybrid" if os.path.exists(rules_path) else "legacy"
+
+    rules = []
+    if rule_source in {"legacy", "hybrid"}:
+        rules.extend(normalize_legacy_rules(constraints_path))
+    if rule_source in {"augmented", "hybrid"}:
+        rules.extend(normalize_augmented_rules(rules_path))
+    rules = deduplicate_rules(rules)
+    if not rules:
+        return normalize_legacy_rules(constraints_path)
+    return rules
+
+
+def rule_literals(rule: dict) -> List[dict]:
+    return rule["antecedents"] + rule["consequents"] + rule["atoms"]
+
+
+def ground_rules(rules: List[dict], facts: List[dict], templates: Dict[str, dict], uncountables: List[str]) -> List[dict]:
+    fact_lookup: Dict[str, Dict[str, dict]] = {}
+    for fact in facts:
+        fact_lookup.setdefault(fact["subject"], {})[fact["predicate"]] = fact
+
+    grounded = []
+    for subject, subject_facts in fact_lookup.items():
+        for rule in rules:
+            grounded_rule = {
+                "rule_id": rule["id"],
+                "rule_type": rule["rule_type"],
+                "source": rule["source"],
+                "subject": subject,
+                "antecedents": [],
+                "consequents": [],
+                "atoms": [],
+            }
+
+            for field in ("antecedents", "consequents", "atoms"):
+                for literal in rule[field]:
+                    relation, obj = literal["predicate"].split(",")
+                    fact = subject_facts.get(literal["predicate"])
+                    grounded_literal = {
+                        "predicate": literal["predicate"],
+                        "positive": literal["positive"],
+                        "statement": Facts.implication2string(
+                            templates=templates,
+                            uncountables=uncountables,
+                            subject=subject,
+                            relation=relation,
+                            symbol=True,
+                            obj=obj,
+                        ),
+                        "belief": fact["belief"] if fact is not None else -1,
+                    }
+                    grounded_rule[field].append(grounded_literal)
+            grounded.append(grounded_rule)
+    return grounded
 
 
 class Constraints(data.Dataset):

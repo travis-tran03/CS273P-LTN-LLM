@@ -92,7 +92,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--config', type=str, required=True)
-    parser.add_argument('--constraint_type', type=str, choices=["implication", "inverse_implication", "negation", "all"], required=True)
+    parser.add_argument('--constraint_type', type=str, choices=["implication", "inverse_implication", "negation", "all"])
+    parser.add_argument('--logic_backend', type=str, choices=["sdd", "ltn"])
+    parser.add_argument('--rule_source', type=str, choices=["legacy", "augmented", "hybrid", "auto"])
+    parser.add_argument('--rules_path', type=str)
+    parser.add_argument('--logic_weight', type=float)
+    parser.add_argument('--factual_weight', type=float)
     parser.add_argument('--port', type=str, default=12355)
     parser.add_argument('--run_name', type=str)
     parser.add_argument('--model', type=str)
@@ -103,6 +108,17 @@ if __name__ == '__main__':
 
     with open(args.config, "r") as f:
         config = json.load(f)
+
+    if "logic_backend" not in config:
+        config["logic_backend"] = "sdd"
+    if "constraint_type" not in config:
+        config["constraint_type"] = "all"
+    if "rule_source" not in config:
+        config["rule_source"] = "legacy"
+    if "logic_weight" not in config:
+        config["logic_weight"] = 1.0
+    if "factual_weight" not in config:
+        config["factual_weight"] = 1.0
 
     # Wandb setup
     if config["wandb"] == True:
@@ -123,6 +139,21 @@ if __name__ == '__main__':
     if args.constraint_type is not None:
         config["constraint_type"] = args.constraint_type
 
+    if args.logic_backend is not None:
+        config["logic_backend"] = args.logic_backend
+
+    if args.rule_source is not None:
+        config["rule_source"] = args.rule_source
+
+    if args.rules_path is not None:
+        config["rules_path"] = args.rules_path
+
+    if args.logic_weight is not None:
+        config["logic_weight"] = args.logic_weight
+
+    if args.factual_weight is not None:
+        config["factual_weight"] = args.factual_weight
+
     if args.model is not None:
         config["model"] = args.model
 
@@ -134,6 +165,9 @@ if __name__ == '__main__':
 
     if args.lr_scheduler is not None: config["lr_scheduler"] = True
     else: config["lr_scheduler"] = False
+
+    if config["logic_backend"] == "sdd" and config["constraint_type"] is None:
+        raise ValueError("`constraint_type` is required when logic_backend is 'sdd'.")
 
     # Start in parallel
     if config["parallel"] is not True:

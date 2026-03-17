@@ -129,29 +129,29 @@ def parse_json_array_from_text(text: str) -> list[dict]:
         return []
 
 
-def _gemini_generate(model_name: str, prompt: str) -> str:
+def _openai_generate(model_name: str, prompt: str) -> str:
     try:
-        from google import genai
+        from openai import OpenAI
     except ImportError:
-        raise SystemExit("Install google-genai: pip install google-genai")
+        raise SystemExit("Install openai: pip install openai")
 
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        raise SystemExit("Set GEMINI_API_KEY in .env")
-    client = genai.Client(api_key=api_key)
+        raise SystemExit("Set OPENAI_API_KEY in .env")
+    client = OpenAI(api_key=api_key)
 
     last_exc = None
     for attempt in range(4):
         try:
-            response = client.models.generate_content(
+            response = client.chat.completions.create(
                 model=model_name,
-                contents=prompt,
+                messages=[{"role": "user", "content": prompt}],
             )
-            return response.text if response and getattr(response, "text", None) else ""
+            return response.choices[0].message.content if response.choices else ""
         except Exception as e:
             last_exc = e
             err_str = str(e).lower()
-            is_429 = "429" in err_str or "resourceexhausted" in err_str or "quota" in err_str
+            is_429 = "429" in err_str or "rate limit" in err_str or "quota" in err_str
             if is_429 and attempt < 3:
                 wait = 35 * (attempt + 1)
                 print(f"  Rate limited (429). Waiting {wait}s before retry {attempt + 2}/4...")
@@ -161,7 +161,7 @@ def _gemini_generate(model_name: str, prompt: str) -> str:
     raise last_exc
 
 
-def generate_rules_with_llm(facts: dict, relations: list[str], model: str = "gemini-2.0-flash") -> list[dict]:
+def generate_rules_with_llm(facts: dict, relations: list[str], model: str = "gpt-4o-mini") -> list[dict]:
     relations_str = "\n".join(f"- {r}" for r in relations)
 
     all_rules: list[dict] = []
@@ -183,7 +183,7 @@ Format:
   ...
 ]
 Use only relations from the list above (exact spelling)."""
-    msg1 = _gemini_generate(model, context + user1 if context else user1)
+    msg1 = _openai_generate(model, context + user1 if context else user1)
     context += f"User:\n{user1}\n\nAssistant:\n{msg1}\n\n"
     parsed = parse_json_array_from_text(msg1)
     for r in parsed:
@@ -202,7 +202,7 @@ Format:
   ...
 ]
 Use only relations from the original list (exact strings)."""
-    msg2 = _gemini_generate(model, context + "User:\n" + user2 + "\n\nAssistant:\n")
+    msg2 = _openai_generate(model, context + "User:\n" + user2 + "\n\nAssistant:\n")
     context += f"User:\n{user2}\n\nAssistant:\n{msg2}\n\n"
     parsed = parse_json_array_from_text(msg2)
     for r in parsed:
@@ -223,7 +223,7 @@ Format:
   ...
 ]
 Use only relations from the original list (exact strings)."""
-    msg3 = _gemini_generate(model, context + "User:\n" + user3 + "\n\nAssistant:\n")
+    msg3 = _openai_generate(model, context + "User:\n" + user3 + "\n\nAssistant:\n")
     context += f"User:\n{user3}\n\nAssistant:\n{msg3}\n\n"
     parsed = parse_json_array_from_text(msg3)
     for r in parsed:
@@ -242,7 +242,7 @@ Format:
   ...
 ]
 Use only relations from the original list (exact strings). Need at least 2 antecedents per rule."""
-    msg4 = _gemini_generate(model, context + "User:\n" + user4 + "\n\nAssistant:\n")
+    msg4 = _openai_generate(model, context + "User:\n" + user4 + "\n\nAssistant:\n")
     parsed = parse_json_array_from_text(msg4)
     for r in parsed:
         if isinstance(r, dict) and r.get("type") == "or_implies":
@@ -257,7 +257,7 @@ def augment_beliefbank(
     facts_path: Path,
     constraints_path: Path,
     output_path: Path,
-    model: str = "gemini-2.5-flash",
+    model: str = "gpt-4o-mini",
 ) -> None:
     facts, original_constraints = load_beliefbank(facts_path, constraints_path)
     relation_to_true_entities, all_entities = extract_relations_and_entities(facts)
@@ -265,8 +265,8 @@ def augment_beliefbank(
 
     print(f"Loaded {len(all_relations)} unique relations across {len(all_entities)} entities.")
 
-    if not (os.environ.get("GEMINI_API_KEY")):
-        print("Warning: GEMINI_API_KEY not set. Set in .env.")
+    if not (os.environ.get("OPENAI_API_KEY")):
+        print("Warning: OPENAI_API_KEY not set. Set in .env.")
     print("Generating candidate rules with LLM...")
     candidate_rules = generate_rules_with_llm(facts, all_relations, model=model)
 
@@ -310,7 +310,7 @@ def main() -> None:
     parser.add_argument("--facts", type=Path, default=DEFAULT_FACTS_PATH, help="Path to silver_facts.json")
     parser.add_argument("--constraints", type=Path, default=DEFAULT_CONSTRAINTS_PATH, help="Path to constraints graph JSON")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH, help="Output augmented JSON path")
-    parser.add_argument("--model", type=str, default="gemini-2.0-flash", help="Gemini model (default: gemini-2.0-flash; or gemini-2.5-flash, gemini-2.5-flash-lite)")
+    parser.add_argument("--model", type=str, default="gpt-4o-mini", help="OpenAI model (default: gpt-4o-mini)")
     args = parser.parse_args()
 
     augment_beliefbank(
