@@ -22,6 +22,6 @@
     "sat_agg_p": 2.0,
     "constraint_type": "all",
     "lora_r": 8,
-    "max_eval_facts": 500,
+    "max_eval_entities": 30,
     "eval_prompts": [0, 1]
 }
