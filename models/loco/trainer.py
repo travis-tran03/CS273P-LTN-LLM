@@ -45,6 +45,10 @@ DEFAULT_CONFIG = {
     "rule_source": "legacy",
     "logic_weight": 1.0,
     "factual_weight": 1.0,
+    "compute_perplexity": False,
+    "implication_floor": 0.5,
+    "rule_batch_size": 32,
+    "sat_agg_p": 2.0,
 }
 
 
@@ -87,8 +91,15 @@ class Trainer():
         self.rule_source = config["rule_source"] if "rule_source" in config else DEFAULT_CONFIG["rule_source"]
         self.logic_weight = config["logic_weight"] if "logic_weight" in config else DEFAULT_CONFIG["logic_weight"]
         self.factual_weight = config["factual_weight"] if "factual_weight" in config else DEFAULT_CONFIG["factual_weight"]
+        self.compute_perplexity = config["compute_perplexity"] if "compute_perplexity" in config else DEFAULT_CONFIG["compute_perplexity"]
+        self.implication_floor = config["implication_floor"] if "implication_floor" in config else DEFAULT_CONFIG["implication_floor"]
+        self.rule_batch_size = config.get("rule_batch_size", DEFAULT_CONFIG["rule_batch_size"])
+        self.sat_agg_p = config.get("sat_agg_p", DEFAULT_CONFIG["sat_agg_p"])
         self.run_parallel = run_parallel
-        self.rule_manager = LTNRuleManager() if self.logic_backend == "ltn" else None
+        self.rule_manager = LTNRuleManager(
+            implication_floor=self.implication_floor,
+            p=self.sat_agg_p,
+        ) if self.logic_backend == "ltn" else None
         
         if config["lr_scheduler"]: 
             print("[-] Using lr scheduler: CosineAnnealingLR")
@@ -314,6 +325,7 @@ class Trainer():
         progressbar = tqdm(rules)
         facts_iterator = iter(facts)
         for batch in progressbar:
+            batch_start = time.time()
             log = {"epoch": epoch}
             try:
                 fact_batch = next(facts_iterator)
@@ -331,15 +343,19 @@ class Trainer():
                     seen.add(statement)
                     unique_statements.append(statement)
 
-            if unique_statements:
+            if batch and unique_statements:
                 statement_probs = self.model_net.get_fact_probabilities(unique_statements)
                 statement_truths = {statement: statement_probs[idx] for idx, statement in enumerate(unique_statements)}
-                truths = self.rule_manager.batch_rule_truths(batch=batch, statement_truths=statement_truths)
+                truths = self.rule_manager.batch_rule_truths(
+                    batch=batch, statement_truths=statement_truths, filter_applicable=False,
+                )
                 logic_loss = self.rule_manager.logic_loss(truths).to(self.gpu_id)
                 log["train/rule_satisfaction"] = truths.mean().item()
+                log["train/active_rules"] = float(truths.numel())
             else:
                 logic_loss = th.tensor(0.0, device=self.gpu_id)
                 log["train/rule_satisfaction"] = 0.0
+                log["train/active_rules"] = 0.0
 
             if self.factual_weight > 0:
                 factual_loss = self.model_net.get_facts_loss(
@@ -356,6 +372,7 @@ class Trainer():
             log["train/ltn_loss"] = logic_loss.item()
             log["train/factual_loss"] = factual_loss.item()
             log["train/loss"] = loss.item()
+            log["batch_time"] = time.time() - batch_start
 
             if ((batch_idx + 1) % self.accumulation_steps == 0) or (batch_idx + 1 == len(rules)):
                 self.optimizer.step()
@@ -489,7 +506,7 @@ class Trainer():
         for k, v in logic.items(): scores[f"{mode}/prompt{prompt_idx}_{split}_{k}"] = v
 
         # Compute perplexity only during evaluation
-        if mode == "val" and prompt_idx == DEFAULT_PROMPT_FORMAT:
+        if self.compute_perplexity and mode == "val" and prompt_idx == DEFAULT_PROMPT_FORMAT:
             print(f"\n[{mode}-{split}] Scoring perplexity...")
             test = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
             ppl = self.model_net.get_perplexity(data=test["text"], window_size=4096)
@@ -561,7 +578,7 @@ class Trainer():
             payload["rules"] = {
                 "train": DataLoader(
                     data["rules"]["train"],
-                    batch_size=self.batch_size,
+                    batch_size=self.rule_batch_size,
                     sampler=(DistributedSampler(data["rules"]["train"]) if self.run_parallel else None),
                     shuffle=(not self.run_parallel),
                     collate_fn=collate_rule_batch,

@@ -168,6 +168,8 @@ if __name__ == '__main__':
 
     if config["logic_backend"] == "sdd" and config["constraint_type"] is None:
         raise ValueError("`constraint_type` is required when logic_backend is 'sdd'.")
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA is required for training but is not available.")
 
     # Start in parallel
     if config["parallel"] is not True:
