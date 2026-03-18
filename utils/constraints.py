@@ -112,7 +112,7 @@ class ConstraintManager():
             g = None if batch_facts is None else batch_facts[idx] # B, 2, 1
             formula = self.grounded_constraint(literals=s, ground_labels=g, constraint=constraint)
             if formula.is_false():
-                loss = -torch.log(torch.tensor(EPS)).unsqueeze(-1)
+                loss = -torch.log(p.new_tensor(EPS)).unsqueeze(-1)
                 if batch_loss is None: batch_loss = loss
                 else: batch_loss = torch.concat((batch_loss, loss), dim=-1)
                 continue
