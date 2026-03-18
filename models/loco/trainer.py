@@ -86,7 +86,7 @@ class Trainer():
         self.lmbda = config["lmbda"] if "lmbda" in config else DEFAULT_CONFIG["lmbda"]
         self.accumulation_steps = config["accumulation_steps"]
         self.factuality = config["factuality"] if "factuality" in config else DEFAULT_CONFIG["factuality"]
-        self.batch_size = 128 if config["model"] == 'allenai/macaw-3b' else config["batch_size"] // config["accumulation_steps"]
+        self.batch_size = config["batch_size"] // config["accumulation_steps"]
         self.use_table_truth = config["use_table_truth"] if "use_table_truth" in config else DEFAULT_CONFIG["use_table_truth"]
         self.constraint_type = config["constraint_type"] if "constraint_type" in config else DEFAULT_CONFIG["constraint_type"]
         self.logic_backend = config["logic_backend"] if "logic_backend" in config else DEFAULT_CONFIG["logic_backend"]
@@ -168,16 +168,18 @@ class Trainer():
     def run_eval(self):
         print(f"[+] Evaluating model.")
         data = self.prepare_data()
+        eval_prompts = self.config.get("eval_prompts", [0, 1])
         # Test
         if(self.gpu_id == 0 or not self.run_parallel):
-            for prompt_idx in [0, 1, 2, 3, 4, 5, 6, 7]:
+            for prompt_idx in eval_prompts:
                 self.score(data=data, mode="test", split="calibration", prompt_idx=prompt_idx)
                 self.score(data=data, mode="test", split="silver", prompt_idx=prompt_idx)
 
-            print(f"\n[-] Scoring perplexity...")
-            test = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
-            ppl = self.model_net.get_perplexity(data=test["text"], window_size=4096)
-            print(f"\t Perplexity: {ppl}")
+            if self.compute_perplexity:
+                print(f"\n[-] Scoring perplexity...")
+                test = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
+                ppl = self.model_net.get_perplexity(data=test["text"], window_size=4096)
+                print(f"\t Perplexity: {ppl}")
 
     def run_train(self, mode="combined"):
         print(f"[+] Training in {mode} mode.")
@@ -693,20 +695,43 @@ class Trainer():
         train_facts = DataLoader(data["facts"]["calibration"]["train"], batch_size=self.batch_size, sampler=(DistributedSampler(data["facts"]["calibration"]["train"]) if self.run_parallel else None), shuffle=(not self.run_parallel))
         train_constraints = DataLoader(data["constraints"]["train"], batch_size=self.batch_size, sampler=(DistributedSampler(data["constraints"]["train"]) if self.run_parallel else None), shuffle=(not self.run_parallel))
         
-        # Validation
-        test_all_calibration_facts = DataLoader(data["facts"]["calibration"]["complete"], batch_size=self.batch_size, shuffle=False)
-        test_all_silver_facts = DataLoader(data["facts"]["silver"]["complete"], batch_size=self.batch_size, shuffle=False)
-            
+        # Subsample eval facts if max_eval_facts is set
+        max_eval_facts = self.config.get("max_eval_facts", -1)
+        def _maybe_subsample(dataset, label):
+            if max_eval_facts > 0 and len(dataset) > max_eval_facts:
+                indices = random.sample(range(len(dataset)), max_eval_facts)
+                subset = Subset(dataset, indices)
+                print(f"[!] Subsampled {label}: {max_eval_facts} / {len(dataset)}")
+                return subset
+            return dataset
+
+        # Eval / test splits
+        eval_calibration = _maybe_subsample(data["facts"]["calibration"]["complete"], "calibration eval facts")
+        eval_silver = _maybe_subsample(data["facts"]["silver"]["complete"], "silver eval facts")
+        test_all_calibration_facts = DataLoader(eval_calibration, batch_size=self.batch_size, shuffle=False)
+        test_all_silver_facts = DataLoader(eval_silver, batch_size=self.batch_size, shuffle=False)
+
         # Validation
         val_calibration_facts = DataLoader(data["facts"]["calibration"]["val"], batch_size=self.batch_size, shuffle=False)
 
         # Testing
         all_constraints = DataLoader(data["constraints"]["all"], batch_size=self.batch_size, shuffle=False)
-        test_calibration_facts = DataLoader(data["facts"]["calibration"]["test"], batch_size=self.batch_size, shuffle=False)
-        test_silver_facts = DataLoader(data["facts"]["silver"]["test"], batch_size=self.batch_size, shuffle=False)
-
-        train_calibration_facts = DataLoader(data["facts"]["calibration"]["train"], batch_size=self.batch_size, shuffle=False)
-        train_silver_facts = DataLoader(data["facts"]["silver"]["train"], batch_size=self.batch_size, shuffle=False)
+        test_calibration_facts = DataLoader(
+            _maybe_subsample(data["facts"]["calibration"]["test"], "calibration test facts"),
+            batch_size=self.batch_size, shuffle=False,
+        )
+        test_silver_facts = DataLoader(
+            _maybe_subsample(data["facts"]["silver"]["test"], "silver test facts"),
+            batch_size=self.batch_size, shuffle=False,
+        )
+        train_calibration_facts = DataLoader(
+            _maybe_subsample(data["facts"]["calibration"]["train"], "calibration train facts"),
+            batch_size=self.batch_size, shuffle=False,
+        )
+        train_silver_facts = DataLoader(
+            _maybe_subsample(data["facts"]["silver"]["train"], "silver train facts"),
+            batch_size=self.batch_size, shuffle=False,
+        )
 
         payload = {
             "constraints": {

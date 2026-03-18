@@ -18,5 +18,7 @@
     "factual_weight": 1.0,
     "compute_perplexity": false,
     "constraint_type": "all",
-    "lora_r": 8
+    "lora_r": 8,
+    "max_eval_facts": 500,
+    "eval_prompts": [0, 1]
 }

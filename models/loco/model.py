@@ -39,179 +39,14 @@ class QA(nn.Module):
         self.use_table_truth = use_table_truth
 
         hf_models = {
-            "allenai/macaw-large": {
-                "type": "seq2seq"
-            },
-            "allenai/macaw-3b": {
-                "type": "seq2seq"
-            },
-            "google/t5-small-ssm-nq": {
-                "type": "seq2seq"
-            },
-            "google/t5-large-ssm-nq": {
-                "type": "seq2seq"
-            },
-            "google/flan-t5-small": {
-                "type": "seq2seq"
-            },
-            "google/t5-3b-ssm-nq": {
-                "type": "seq2seq"
-            },
-            "unc-nlp/lxmert-base-uncased": {
-                "type": "seq2seq"
-            },
-            "gpt2-medium": {
-                "type": "decoder"
-            },
-            "sharpbai/Llama-2-7b-chat": {
-                "type": "decoder"
-            },
-            "sharpbai/Llama-2-7b-hf": {
-                "type": "decoder"
-            },
-            "sharpbai/Llama-2-13b-hf": {
-                "type": "decoder"
-            },
-            "NousResearch/Llama-2-7b-chat-hf": {
-                "type": "decoder"
-            },
-            "mistralai/Mistral-7B-Instruct-v0.1": {
-                "type": "decoder"
-            },
-            "NousResearch/Llama-2-70b-chat-hf": {
-                "type": "decoder"
-            },
-            "NousResearch/Llama-2-7b-hf": {
-                "type": "decoder"
-            },
-            "NousResearch/Llama-2-70b-hf": {
-                "type": "decoder"
-            },
-            "TinyLlama/TinyLlama-1.1B-intermediate-step-1195k-token-2.5T": {
-                "type": "decoder"
-            },
             "meta-llama/Llama-3.2-1B": {
-                "type": "decoder"
-            },
-            "NousResearch/Llama-2-13b-hf": {
-                "type": "decoder"
-            },
-            "meta-llama/Llama-3.1-8B": {
                 "type": "decoder"
             },
         }
         self.hf_models = hf_models
 
         hf_mod_config = {
-            "allenai/macaw-large": (
-                in_format if in_format else in_f_macaw,
-                out_format if out_format else out_f_macaw,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForSeq2SeqLM.from_pretrained,
-            ),
-            "allenai/macaw-3b": (
-                in_format if in_format else in_f_macaw,
-                out_format if out_format else out_f_macaw,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForSeq2SeqLM.from_pretrained,
-            ),
-            "google/t5-small-ssm-nq": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.T5ForConditionalGeneration.from_pretrained,
-            ),
-            "google/flan-t5-small": (
-                in_format if in_format else in_f_flant5,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForSeq2SeqLM.from_pretrained,
-            ),
-            "gpt2-medium": (
-                in_format if in_format else in_f_flant5,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "google/t5-large-ssm-nq": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForSeq2SeqLM.from_pretrained,
-            ),
-            "google/t5-3b-ssm-nq": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForSeq2SeqLM.from_pretrained,
-            ),
-            "sharpbai/Llama-2-7b-chat": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "sharpbai/Llama-2-7b-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "NousResearch/Llama-2-7b-chat-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "sharpbai/Llama-2-13b-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "NousResearch/Llama-2-70b-chat-hf":(
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "mistralai/Mistral-7B-Instruct-v0.1": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "NousResearch/Llama-2-7b-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "NousResearch/Llama-2-70b-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "TinyLlama/TinyLlama-1.1B-intermediate-step-1195k-token-2.5T": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
             "meta-llama/Llama-3.2-1B": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "NousResearch/Llama-2-13b-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "meta-llama/Llama-3.1-8B": (
                 lambda x: x,
                 lambda x: x,
                 transformers.AutoTokenizer.from_pretrained,
@@ -253,8 +88,7 @@ class QA(nn.Module):
         self.gpu_id = gpu_id
 
         # Model
-        self.tokenizer = self.tok_factory(self.model_hf_name) if "t5-3b" not in self.model_hf_name \
-            else self.tok_factory("google/t5-xl-ssm-nq")
+        self.tokenizer = self.tok_factory(self.model_hf_name)
 
         if self.is_decoder():
             if quantization:

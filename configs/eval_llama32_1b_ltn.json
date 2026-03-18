@@ -19,5 +19,9 @@
     "implication_floor": 0.5,
     "rule_batch_size": 32,
     "sat_agg_p": 2.0,
-    "constraint_type": "all"
+    "constraint_type": "all",
+    "compute_perplexity": false,
+    "lora_r": 8,
+    "max_eval_facts": 500,
+    "eval_prompts": [0, 1]
 }
