@@ -47,7 +47,7 @@ def main(rank:int, world_size:int, config:object, wandb_run:object, run_parallel
     # Load model
     if "checkpoint" in config:
         print(f"[-] Loading LoRA adapter: {config['checkpoint']}")
-        model.model.load_adapter(config['checkpoint'])
+        model.model.load_adapter(config['checkpoint'], adapter_name="default")
     
     model.to(rank)
 
@@ -105,6 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint', type=str)
     parser.add_argument('--quantization', type=bool)
     parser.add_argument('--lr_scheduler', type=bool)
+    parser.add_argument('--results_dir', type=str, default='results')
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
@@ -166,6 +167,8 @@ if __name__ == '__main__':
 
     if args.lr_scheduler is not None: config["lr_scheduler"] = True
     else: config["lr_scheduler"] = False
+
+    config["results_dir"] = args.results_dir
 
     if config["logic_backend"] in ("sdd", "hybrid") and config["constraint_type"] is None:
         raise ValueError("`constraint_type` is required when logic_backend is 'sdd'.")

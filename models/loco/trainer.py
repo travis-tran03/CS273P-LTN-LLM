@@ -1,4 +1,5 @@
 
+import json as _json
 import os
 import random
 import time
@@ -138,7 +139,7 @@ class Trainer():
         print(f"[!] Setting outputs log to: {self.path_outputs_log}")
 
     def save_model(self, path):
-        if not os.path.exists(path): os.mkdir(path)
+        os.makedirs(path, exist_ok=True)
         self.model_net.model.save_pretrained(path)
         self.model_net.tokenizer.save_pretrained(path)
 
@@ -161,7 +162,6 @@ class Trainer():
                 metrics += f"{key}: {val:.2f}; "
         printout = timing + metrics
         if progressbar is not None:
-            progressbar.update(1)
             tqdm.write(printout)
         else: print(printout)
 
@@ -169,17 +169,34 @@ class Trainer():
         print(f"[+] Evaluating model.")
         data = self.prepare_data()
         eval_prompts = self.config.get("eval_prompts", [0, 1])
-        # Test
+        all_scores = {}
         if(self.gpu_id == 0 or not self.run_parallel):
             for prompt_idx in eval_prompts:
-                self.score(data=data, mode="test", split="calibration", prompt_idx=prompt_idx)
-                self.score(data=data, mode="test", split="silver", prompt_idx=prompt_idx)
+                scores_cal = self.score(data=data, mode="test", split="calibration", prompt_idx=prompt_idx)
+                all_scores.update(scores_cal)
+                scores_sil = self.score(data=data, mode="test", split="silver", prompt_idx=prompt_idx)
+                all_scores.update(scores_sil)
 
             if self.compute_perplexity:
                 print(f"\n[-] Scoring perplexity...")
                 test = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
                 ppl = self.model_net.get_perplexity(data=test["text"], window_size=4096)
                 print(f"\t Perplexity: {ppl}")
+                all_scores["perplexity"] = ppl
+
+        results_dir = self.config.get("results_dir", "results")
+        os.makedirs(results_dir, exist_ok=True)
+        result_name = f"{self.ckpt_name}_{time.strftime('%Y%m%d-%H%M%S')}.json"
+        result_path = os.path.join(results_dir, result_name)
+        payload = {
+            "model": self.model_net.model_hf_name,
+            "logic_backend": self.logic_backend,
+            "checkpoint": self.config.get("checkpoint", None),
+            "scores": all_scores,
+        }
+        with open(result_path, "w") as f:
+            _json.dump(payload, f, indent=2)
+        print(f"\n[!] Results saved to: {result_path}")
 
     def run_train(self, mode="combined"):
         print(f"[+] Training in {mode} mode.")
@@ -402,6 +419,7 @@ class Trainer():
             log["batch_s"] = batch_time
 
             if ((batch_idx + 1) % self.accumulation_steps == 0) or (batch_idx + 1 == len(rules)):
+                th.nn.utils.clip_grad_norm_(self.model_net.model.parameters(), max_norm=1.0)
                 self.optimizer.step()
                 self.optimizer.zero_grad()
 
@@ -530,6 +548,7 @@ class Trainer():
             log["batch_s"] = batch_time
 
             if ((batch_idx + 1) % self.accumulation_steps == 0) or (batch_idx + 1 == len(constraints)):
+                th.nn.utils.clip_grad_norm_(self.model_net.model.parameters(), max_norm=1.0)
                 self.optimizer.step()
                 self.optimizer.zero_grad()
 
