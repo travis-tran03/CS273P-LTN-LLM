@@ -140,6 +140,9 @@ class QA(nn.Module):
         if self.tokenizer.pad_token is None:
             self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
             self.model.resize_token_embeddings(len(self.tokenizer))
+        if getattr(self.model, "generation_config", None) is not None:
+            self.model.generation_config.pad_token_id = self.tokenizer.pad_token_id
+            self.model.generation_config.eos_token_id = self.tokenizer.eos_token_id
 
         self.MAX_GEN_TOKENS = 4
         
@@ -156,7 +159,19 @@ class QA(nn.Module):
         """ Get model answers to (premise, hypothesis) formulas """
         self.model.eval()
         in_prompts = self.tokenizer(quests, padding=True, return_tensors="pt").to(self.gpu_id)
-        answers = self.tokenizer.batch_decode(self.model.generate(**in_prompts, do_sample=True, top_k = 50, top_p = 1.0, temperature = 1.0, max_new_tokens = self.MAX_GEN_TOKENS), skip_special_tokens=True)
+        answers = self.tokenizer.batch_decode(
+            self.model.generate(
+                **in_prompts,
+                do_sample=True,
+                top_k=50,
+                top_p=1.0,
+                temperature=1.0,
+                max_new_tokens=self.MAX_GEN_TOKENS,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+            ),
+            skip_special_tokens=True,
+        )
         return answers
 
     def infer_fact_prob(self, quests:List[str]):
