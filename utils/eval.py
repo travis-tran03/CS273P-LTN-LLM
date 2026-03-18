@@ -4,7 +4,7 @@ from pysdd.sdd import SddManager, Vtree
 class Metrics:
 
     @staticmethod
-    def multihop_consistency(model_beliefs:dict, ref_beliefs:dict, constraints:List[object]) -> object:
+    def multihop_consistency(model_beliefs:dict, ref_beliefs:dict, constraints:List[object], return_details: bool = False) -> object:
         """
             Compute consistency on the whole set of links
             beliefs:dict            {fact:str: answer:int(yes/no)}
@@ -32,7 +32,10 @@ class Metrics:
                                     applicable += 1
                                     if ct != model_beliefs[subj][C]: violated += 1
         print(f"multi-hop consistency; applicable: {applicable}; violated: {violated}")
-        return 1 - ((violated/applicable) if applicable > 0 else 1)
+        score = 1 - ((violated/applicable) if applicable > 0 else 1)
+        if return_details:
+            return {"score": score, "applicable": applicable, "violated": violated}
+        return score
 
     @staticmethod
     def perplexity(model:object, inputs:List[str], outputs:List[str]) -> float:
@@ -49,7 +52,7 @@ class Metrics:
         return torch.exp(outputs.loss).item()
         
     @staticmethod
-    def consistency(model_beliefs:dict, ref_beliefs:dict, constraints:List[object]) -> float:
+    def consistency(model_beliefs:dict, ref_beliefs:dict, constraints:List[object], return_details: bool = False) -> float:
         """
             Compute consistency on the whole set of links
             beliefs:dict            {fact:str: answer:int(yes/no)}
@@ -72,10 +75,13 @@ class Metrics:
                         # print(f"ant: {model_beliefs[subj][ant]}, cons: {model_beliefs[subj][cons]}")
                         if ct != model_beliefs[subj][cons]: violated += 1
         print(f"consistency; applicable: {applicable}; violated: {violated}")
-        return 1 - ((violated/applicable) if applicable > 0 else 1)
+        score = 1 - ((violated/applicable) if applicable > 0 else 1)
+        if return_details:
+            return {"score": score, "applicable": applicable, "violated": violated}
+        return score
 
     @staticmethod
-    def inverse_consistency(model_beliefs:dict, ref_beliefs:dict, constraints:List[object]) -> float:
+    def inverse_consistency(model_beliefs:dict, ref_beliefs:dict, constraints:List[object], return_details: bool = False) -> float:
         """
             Compute consistency on the whole set of links
             beliefs:dict            {fact:str: answer:int(yes/no)}
@@ -95,13 +101,19 @@ class Metrics:
                         applicable += 1
                         if model_beliefs[subj][ant] == 1: violated += 1 # violating "-B -> -A"?
         print(f"inverse consistency; applicable: {applicable}; violated: {violated}")
-        return 1 - ((violated/applicable) if applicable > 0 else 1)
+        score = 1 - ((violated/applicable) if applicable > 0 else 1)
+        if return_details:
+            return {"score": score, "applicable": applicable, "violated": violated}
+        return score
     
     @staticmethod
-    def negation_consistency(beliefs:List[int], negated_beliefs:List[int]) -> float:
+    def negation_consistency(beliefs:List[int], negated_beliefs:List[int], return_details: bool = False) -> float:
         violations = [int(b == n_b) for b, n_b in zip(beliefs, negated_beliefs)]
         print(f"negation consistency; applicable: {len(violations)}; violated: {sum(violations)}")
-        return 1 - (sum(violations) / len(violations)) 
+        score = 1 - (sum(violations) / len(violations))
+        if return_details:
+            return {"score": score, "applicable": len(violations), "violated": sum(violations)}
+        return score
 
     @staticmethod
     def get_truth_table(symbols:List[bool], n_variables:int=2) -> (List, List):
@@ -114,7 +126,7 @@ class Metrics:
         return ((-a | b).models()), ((-(-a | b)).models()) # T:List[], F:List[]
 
     @staticmethod
-    def satisfiability(model_beliefs:dict, constraints:List[object]) -> float:
+    def satisfiability(model_beliefs:dict, constraints:List[object], return_details: bool = False) -> float:
         """
             Compute satisfiability on the whole set of links
             beliefs:dict        {fact:str: answer:int(yes/no)}
@@ -135,4 +147,7 @@ class Metrics:
                     model_assignment = [model_beliefs[subj][ant], model_beliefs[subj][cons]]
                     satisfied += int(model_assignment in true_assignments)
                     applicable += 1
-        return ((satisfied/applicable) if applicable > 0 else 0)
+        score = ((satisfied/applicable) if applicable > 0 else 0)
+        if return_details:
+            return {"score": score, "applicable": applicable, "satisfied": satisfied}
+        return score

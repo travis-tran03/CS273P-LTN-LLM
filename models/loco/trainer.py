@@ -613,7 +613,10 @@ class Trainer():
             "negated_beliefs": answ_model_negated_beliefs, 
             "ground_beliefs": answ_ground_beliefs, 
             "dict_beliefs": model_beliefs, 
-            "ref_beliefs": ref_beliefs
+            "ref_beliefs": ref_beliefs,
+            "distribution_positive_label": FORMATS[prompt_idx]["label"],
+            "distribution_positive_count": sum(trues),
+            "distribution_total": len(trues),
         }
 
     def score_facts(self, facts) -> dict:
@@ -621,31 +624,74 @@ class Trainer():
             Test model's beliefs against a knowledge base
         """
         f1 = metrics.f1_score(facts["ground_beliefs"], facts["beliefs"])
-        negation_consistency = Metrics.negation_consistency(facts["beliefs"], facts["negated_beliefs"])
-        return {"f1": f1, "negation_consistency": negation_consistency}
+        negation = Metrics.negation_consistency(
+            facts["beliefs"], facts["negated_beliefs"], return_details=True
+        )
+        return {
+            "f1": f1,
+            "negation_consistency": negation["score"],
+            "negation_consistency_applicable": negation["applicable"],
+            "negation_consistency_violated": negation["violated"],
+            "distribution_positive_count": facts["distribution_positive_count"],
+            "distribution_total": facts["distribution_total"],
+        }
 
     def score_logic_sdd(self, facts, constraints) -> dict:
         """
             Test model's beliefs against logical constraints
         """
-        self_consistency = Metrics.consistency(model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["dict_beliefs"], constraints=constraints)
-        self_inverse_consistency = Metrics.inverse_consistency(model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["dict_beliefs"], constraints=constraints)
-        self_multihop_consistency = Metrics.multihop_consistency(model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["dict_beliefs"], constraints=constraints)
-        
-        consistency = Metrics.consistency(model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["ref_beliefs"], constraints=constraints)
-        inverse_consistency = Metrics.inverse_consistency(model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["ref_beliefs"], constraints=constraints)
-        multihop_consistency = Metrics.multihop_consistency(model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["ref_beliefs"], constraints=constraints)
-        
-        satisfiability = Metrics.satisfiability(model_beliefs=facts["dict_beliefs"], constraints=constraints)
+        self_consistency = Metrics.consistency(
+            model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["dict_beliefs"],
+            constraints=constraints, return_details=True,
+        )
+        self_inverse_consistency = Metrics.inverse_consistency(
+            model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["dict_beliefs"],
+            constraints=constraints, return_details=True,
+        )
+        self_multihop_consistency = Metrics.multihop_consistency(
+            model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["dict_beliefs"],
+            constraints=constraints, return_details=True,
+        )
+
+        consistency = Metrics.consistency(
+            model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["ref_beliefs"],
+            constraints=constraints, return_details=True,
+        )
+        inverse_consistency = Metrics.inverse_consistency(
+            model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["ref_beliefs"],
+            constraints=constraints, return_details=True,
+        )
+        multihop_consistency = Metrics.multihop_consistency(
+            model_beliefs=facts["dict_beliefs"], ref_beliefs=facts["ref_beliefs"],
+            constraints=constraints, return_details=True,
+        )
+
+        satisfiability = Metrics.satisfiability(
+            model_beliefs=facts["dict_beliefs"], constraints=constraints, return_details=True,
+        )
 
         return {
-            "self_consistency": self_consistency, 
-            "self_inverse_consistency": self_inverse_consistency, 
-            "self_multihop_consistency": self_multihop_consistency,
-            "satisfiability": satisfiability,
-            "consistency": consistency, 
-            "inverse_consistency": inverse_consistency, 
-            "multihop_consistency": multihop_consistency
+            "self_consistency": self_consistency["score"],
+            "self_consistency_applicable": self_consistency["applicable"],
+            "self_consistency_violated": self_consistency["violated"],
+            "self_inverse_consistency": self_inverse_consistency["score"],
+            "self_inverse_consistency_applicable": self_inverse_consistency["applicable"],
+            "self_inverse_consistency_violated": self_inverse_consistency["violated"],
+            "self_multihop_consistency": self_multihop_consistency["score"],
+            "self_multihop_consistency_applicable": self_multihop_consistency["applicable"],
+            "self_multihop_consistency_violated": self_multihop_consistency["violated"],
+            "satisfiability": satisfiability["score"],
+            "satisfiability_applicable": satisfiability["applicable"],
+            "satisfiability_satisfied": satisfiability["satisfied"],
+            "consistency": consistency["score"],
+            "consistency_applicable": consistency["applicable"],
+            "consistency_violated": consistency["violated"],
+            "inverse_consistency": inverse_consistency["score"],
+            "inverse_consistency_applicable": inverse_consistency["applicable"],
+            "inverse_consistency_violated": inverse_consistency["violated"],
+            "multihop_consistency": multihop_consistency["score"],
+            "multihop_consistency_applicable": multihop_consistency["applicable"],
+            "multihop_consistency_violated": multihop_consistency["violated"],
         }
 
     def score_logic_ltn(self, facts, rules) -> dict:
@@ -794,14 +840,23 @@ class Trainer():
             indices = random.sample(range(len(train_rules)), self.max_train_rules)
             train_rules = Subset(train_rules, indices)
             print(f"[!] Subsampled training rules: {len(train_rules)} / {len(data['rules']['train'])}")
-        payload["rules"] = {
-            "train": DataLoader(
+        if len(train_rules) > 0:
+            rules_loader = DataLoader(
                 train_rules,
                 batch_size=self.rule_batch_size,
                 sampler=(DistributedSampler(train_rules) if self.run_parallel else None),
                 shuffle=(not self.run_parallel),
                 collate_fn=collate_rule_batch,
-            ),
+            )
+        else:
+            rules_loader = DataLoader(
+                train_rules,
+                batch_size=self.rule_batch_size,
+                shuffle=False,
+                collate_fn=collate_rule_batch,
+            )
+        payload["rules"] = {
+            "train": rules_loader,
             "val": {
                 "calibration": data["rules"]["val"]["calibration"],
             },
