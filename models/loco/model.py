@@ -26,6 +26,7 @@ class QA(nn.Module):
         gpu_id,
         model_hf_name="allenai/macaw-large",
         quantization: bool = False,
+        lora_r: int = 128,
         in_format: Callable = None,
         out_format: Callable = None,
         mod_factory: Callable = None,
@@ -271,12 +272,16 @@ class QA(nn.Module):
                     torch_dtype=torch.bfloat16,
                 )
                 self.model.config.use_cache = False
-                self.model = prepare_model_for_kbit_training(self.model)
+                self.model = prepare_model_for_kbit_training(
+                    self.model,
+                    use_gradient_checkpointing=True,
+                    gradient_checkpointing_kwargs={"use_reentrant": False},
+                )
                 self.tokenizer.pad_token = self.tokenizer.eos_token
                 self.tokenizer.padding_side = "left"
                 peft_config = LoraConfig(
-                    r=128,
-                    lora_alpha=16,
+                    r=lora_r,
+                    lora_alpha=lora_r // 4 if lora_r >= 16 else lora_r,
                     target_modules=find_all_linear_names(self.model),
                     lora_dropout=0.05,
                     bias="none",

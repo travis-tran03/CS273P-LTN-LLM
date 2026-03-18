@@ -10,7 +10,7 @@ import transformers
 from datasets import load_dataset
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from torch.utils.data.distributed import DistributedSampler
 from tqdm.auto import tqdm
 
@@ -49,6 +49,8 @@ DEFAULT_CONFIG = {
     "implication_floor": 0.5,
     "rule_batch_size": 32,
     "sat_agg_p": 2.0,
+    "prob_chunk_size": 4,
+    "max_train_rules": -1,
 }
 
 
@@ -95,11 +97,15 @@ class Trainer():
         self.implication_floor = config["implication_floor"] if "implication_floor" in config else DEFAULT_CONFIG["implication_floor"]
         self.rule_batch_size = config.get("rule_batch_size", DEFAULT_CONFIG["rule_batch_size"])
         self.sat_agg_p = config.get("sat_agg_p", DEFAULT_CONFIG["sat_agg_p"])
+        self.prob_chunk_size = config.get("prob_chunk_size", DEFAULT_CONFIG["prob_chunk_size"])
+        self.max_train_rules = config.get("max_train_rules", DEFAULT_CONFIG["max_train_rules"])
+        self.sdd_weight = config.get("sdd_weight", 1.0)
+        self.ltn_weight = config.get("ltn_weight", 1.0)
         self.run_parallel = run_parallel
         self.rule_manager = LTNRuleManager(
             implication_floor=self.implication_floor,
             p=self.sat_agg_p,
-        ) if self.logic_backend == "ltn" else None
+        )
         
         if config["lr_scheduler"]: 
             print("[-] Using lr scheduler: CosineAnnealingLR")
@@ -124,7 +130,7 @@ class Trainer():
         print(f"[-] Accumulation steps: {self.accumulation_steps}")
         
         # Setting filenames
-        backend_name = self.logic_backend if self.logic_backend == "ltn" else self.constraint_type
+        backend_name = self.logic_backend if self.logic_backend in ("ltn", "hybrid") else self.constraint_type
         self.ckpt_name = f"{backend_name}_{self.model_net.model_hf_name.split('/')[1]}"
         print(f"[!] Setting checkpoint save path to: {self.ckpt_name}")
 
@@ -146,11 +152,17 @@ class Trainer():
     def log_step(self, log:object, progressbar:object=None):
         """ Log scores to wandb and return log string """
         if self.logging and (self.gpu_id == 0 or not self.run_parallel): self.wandb.log(log)
-        printout = ""
-        for key, val in log.items(): printout += f"{key}: {val:.2f}; "
+        timing = ""
+        metrics = ""
+        for key, val in log.items():
+            if key == "batch_s":
+                timing = f"[{val:.1f}s] "
+            else:
+                metrics += f"{key}: {val:.2f}; "
+        printout = timing + metrics
         if progressbar is not None:
             progressbar.update(1)
-            progressbar.set_description(printout)
+            tqdm.write(printout)
         else: print(printout)
 
     def run_eval(self):
@@ -181,6 +193,13 @@ class Trainer():
             print("\n[-] Training loop...")
             if self.logic_backend == "ltn":
                 self.epoch_ltn(rules=data["rules"]["train"], facts=data["facts"]["train"]["calibration"], epoch=e)
+            elif self.logic_backend == "hybrid":
+                self.epoch_hybrid(
+                    constraints=data["constraints"]["train"],
+                    rules=data["rules"]["train"],
+                    facts=data["facts"]["train"]["calibration"],
+                    epoch=e,
+                )
             else:
                 self.epoch(constraints=data["constraints"]["train"], epoch=e)
             if self.LRscheduler is not None: self.LRscheduler.step()
@@ -344,7 +363,12 @@ class Trainer():
                     unique_statements.append(statement)
 
             if batch and unique_statements:
-                statement_probs = self.model_net.get_fact_probabilities(unique_statements)
+                prob_chunk_size = self.prob_chunk_size
+                all_probs = []
+                for i in range(0, len(unique_statements), prob_chunk_size):
+                    chunk = unique_statements[i : i + prob_chunk_size]
+                    all_probs.append(self.model_net.get_fact_probabilities(chunk))
+                statement_probs = th.cat(all_probs, dim=0)
                 statement_truths = {statement: statement_probs[idx] for idx, statement in enumerate(unique_statements)}
                 truths = self.rule_manager.batch_rule_truths(
                     batch=batch, statement_truths=statement_truths, filter_applicable=False,
@@ -369,12 +393,141 @@ class Trainer():
             loss = loss / self.accumulation_steps
             loss.backward()
 
+            batch_time = time.time() - batch_start
             log["train/ltn_loss"] = logic_loss.item()
             log["train/factual_loss"] = factual_loss.item()
             log["train/loss"] = loss.item()
-            log["batch_time"] = time.time() - batch_start
+            log["batch_s"] = batch_time
 
             if ((batch_idx + 1) % self.accumulation_steps == 0) or (batch_idx + 1 == len(rules)):
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+
+            self.log_step(log=log, progressbar=progressbar)
+            e_loss.append(loss.item())
+            batch_idx += 1
+
+        return th.mean(th.tensor(e_loss))
+
+    def epoch_hybrid(self, constraints, rules, facts, epoch=None):
+        """
+            Hybrid training: SDD semantic loss for binary constraints plus
+            LTN fuzzy loss for complex rules (and_implies, or_implies, xor).
+        """
+        e_loss = []
+        batch_idx = 0
+        progressbar = tqdm(constraints)
+        rules_iterator = iter(rules)
+        facts_iterator = iter(facts)
+
+        for batch in progressbar:
+            batch_start = time.time()
+            log = {"epoch": epoch}
+
+            # --- SDD loss (binary constraints) ---
+            prompt_idx = random.choice([0, 1])
+            if self.model_net.is_decoder():
+                premises = [FORMATS[prompt_idx]["prompt"].format(fact=p) for p in batch["antecedent"]]
+                hypothesis = [FORMATS[prompt_idx]["prompt"].format(fact=p) for p in batch["consequent"]]
+                neg_premises = [FORMATS[prompt_idx]["prompt"].format(fact=p) for p in batch["neg_antecedent"]]
+                neg_hypothesis = [FORMATS[prompt_idx]["prompt"].format(fact=p) for p in batch["neg_consequent"]]
+            elif self.model_net.is_seq2seq():
+                premises = list(batch["antecedent"])
+                hypothesis = list(batch["consequent"])
+                neg_premises = list(batch["neg_antecedent"])
+                neg_hypothesis = list(batch["neg_consequent"])
+
+            p1, p2 = self.model_net.get_formula_beliefs(
+                s1=premises, s2=hypothesis, label=FORMATS[prompt_idx]["label"]
+            )
+            if self.constraint_type == "negation":
+                ground_facts = None
+                constraint_symbols = th.ones((batch["s_antecedent"].shape[0], 2)).to(self.gpu_id)
+            else:
+                ground_facts = list(zip(batch["g_antecedent"].tolist(), batch["g_consequent"].tolist()))
+                constraint_symbols = th.stack((batch["s_antecedent"], batch["s_consequent"]), dim=1)
+
+            if ConstraintManager.need_negations(self.constraint_type):
+                p1_not, p2_not = self.model_net.get_formula_beliefs(
+                    s1=neg_premises, s2=neg_hypothesis, label=FORMATS[prompt_idx]["label"]
+                )
+            else:
+                p1_not, p2_not = None, None
+
+            sdd_loss = self.constraint_mg.sl(
+                p1=p1, p2=p2, p1_not=p1_not, p2_not=p2_not,
+                batch_symbols=constraint_symbols,
+                batch_facts=ground_facts,
+                constraint=self.constraint_type,
+            )
+
+            # --- LTN loss (complex rules) ---
+            try:
+                rule_batch = next(rules_iterator)
+            except StopIteration:
+                rules_iterator = iter(rules)
+                rule_batch = next(rules_iterator)
+
+            unique_statements = []
+            seen = set()
+            for sample in rule_batch:
+                for literal in sample["antecedents"] + sample["consequents"] + sample["atoms"]:
+                    stmt = literal["statement"]
+                    if stmt not in seen:
+                        seen.add(stmt)
+                        unique_statements.append(stmt)
+
+            if rule_batch and unique_statements:
+                prob_chunk_size = self.prob_chunk_size
+                all_probs = []
+                for i in range(0, len(unique_statements), prob_chunk_size):
+                    chunk = unique_statements[i : i + prob_chunk_size]
+                    all_probs.append(self.model_net.get_fact_probabilities(chunk))
+                statement_probs = th.cat(all_probs, dim=0)
+                statement_truths = {s: statement_probs[idx] for idx, s in enumerate(unique_statements)}
+                truths = self.rule_manager.batch_rule_truths(
+                    batch=rule_batch, statement_truths=statement_truths, filter_applicable=False,
+                )
+                ltn_loss = self.rule_manager.logic_loss(truths).to(self.gpu_id)
+                log["train/rule_satisfaction"] = truths.mean().item()
+                log["train/active_rules"] = float(truths.numel())
+            else:
+                ltn_loss = th.tensor(0.0, device=self.gpu_id)
+                log["train/rule_satisfaction"] = 0.0
+                log["train/active_rules"] = 0.0
+
+            # --- Factual loss ---
+            try:
+                fact_batch = next(facts_iterator)
+            except StopIteration:
+                facts_iterator = iter(facts)
+                fact_batch = next(facts_iterator)
+
+            if self.factual_weight > 0:
+                factual_loss = self.model_net.get_facts_loss(
+                    statements=fact_batch["fact"],
+                    labels=fact_batch["belief"].tolist(),
+                )
+            else:
+                factual_loss = th.tensor(0.0, device=self.gpu_id)
+
+            # --- Combined loss ---
+            loss = (
+                self.sdd_weight * sdd_loss
+                + self.ltn_weight * ltn_loss
+                + self.factual_weight * factual_loss
+            )
+            loss = loss / self.accumulation_steps
+            loss.backward()
+
+            batch_time = time.time() - batch_start
+            log["train/sdd_loss"] = sdd_loss.item()
+            log["train/ltn_loss"] = ltn_loss.item()
+            log["train/factual_loss"] = factual_loss.item()
+            log["train/loss"] = loss.item()
+            log["batch_s"] = batch_time
+
+            if ((batch_idx + 1) % self.accumulation_steps == 0) or (batch_idx + 1 == len(constraints)):
                 self.optimizer.step()
                 self.optimizer.zero_grad()
 
@@ -495,15 +648,20 @@ class Trainer():
         print(f"\n[{mode}-{split}] Scoring factuality...")
         factuality = self.score_facts(facts=beliefs)
 
-        print(f"\n[{mode}-{split}] Scoring constraints...")
-        if self.logic_backend == "ltn":
-            logic = self.score_logic_ltn(facts=beliefs, rules=data["rules"][mode][split])
-        else:
-            logic = self.score_logic_sdd(facts=beliefs, constraints=data["constraints"][mode])
+        # Unified eval: always compute LTN rule satisfaction as common metric
+        print(f"\n[{mode}-{split}] Scoring LTN rule satisfaction...")
+        ltn_logic = self.score_logic_ltn(facts=beliefs, rules=data["rules"][mode][split])
+
+        # Also compute SDD metrics when constraint data is available
+        sdd_logic = {}
+        if self.logic_backend in ("sdd", "hybrid"):
+            print(f"\n[{mode}-{split}] Scoring SDD constraints...")
+            sdd_logic = self.score_logic_sdd(facts=beliefs, constraints=data["constraints"][mode])
 
         scores = {}
         for k, v in factuality.items(): scores[f"{mode}/prompt{prompt_idx}_{split}_{k}"] = v
-        for k, v in logic.items(): scores[f"{mode}/prompt{prompt_idx}_{split}_{k}"] = v
+        for k, v in ltn_logic.items(): scores[f"{mode}/prompt{prompt_idx}_{split}_{k}"] = v
+        for k, v in sdd_logic.items(): scores[f"{mode}/prompt{prompt_idx}_{split}_{k}"] = v
 
         # Compute perplexity only during evaluation
         if self.compute_perplexity and mode == "val" and prompt_idx == DEFAULT_PROMPT_FORMAT:
@@ -574,22 +732,27 @@ class Trainer():
             }
         }
 
-        if self.logic_backend == "ltn":
-            payload["rules"] = {
-                "train": DataLoader(
-                    data["rules"]["train"],
-                    batch_size=self.rule_batch_size,
-                    sampler=(DistributedSampler(data["rules"]["train"]) if self.run_parallel else None),
-                    shuffle=(not self.run_parallel),
-                    collate_fn=collate_rule_batch,
-                ),
-                "val": {
-                    "calibration": data["rules"]["val"]["calibration"],
-                },
-                "test": {
-                    "calibration": data["rules"]["test"]["calibration"],
-                    "silver": data["rules"]["test"]["silver"],
-                },
-            }
+        # Always load rules for unified eval; subset training rules for ltn/hybrid
+        train_rules = data["rules"]["train"]
+        if self.logic_backend in ("ltn", "hybrid") and self.max_train_rules > 0 and len(train_rules) > self.max_train_rules:
+            indices = random.sample(range(len(train_rules)), self.max_train_rules)
+            train_rules = Subset(train_rules, indices)
+            print(f"[!] Subsampled training rules: {len(train_rules)} / {len(data['rules']['train'])}")
+        payload["rules"] = {
+            "train": DataLoader(
+                train_rules,
+                batch_size=self.rule_batch_size,
+                sampler=(DistributedSampler(train_rules) if self.run_parallel else None),
+                shuffle=(not self.run_parallel),
+                collate_fn=collate_rule_batch,
+            ),
+            "val": {
+                "calibration": data["rules"]["val"]["calibration"],
+            },
+            "test": {
+                "calibration": data["rules"]["test"]["calibration"],
+                "silver": data["rules"]["test"]["silver"],
+            },
+        }
 
         return payload
