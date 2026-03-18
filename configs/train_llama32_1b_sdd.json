@@ -3,7 +3,7 @@
     "epochs": 3,
     "val_interval": 1,
     "lr": 0.0003,
-    "batch_size": 16,
+    "batch_size": 128,
     "accumulation_steps": 1,
     "wandb": false,
     "task": "train",
