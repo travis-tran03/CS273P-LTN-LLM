@@ -202,7 +202,7 @@ class QA(nn.Module):
         """ Train: fine-tuning on ground single facts """
         self.model.train()
         ground_labels = [prompt_answer(type=self.get_model_type(), text=FALSETRUE[int(l)]) for l in labels]
-        return - torch.sum(
+        return - torch.mean(
                     torch.log(
                         gpt_get_target_probs(
                             model=self.model, 
