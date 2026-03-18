@@ -15,6 +15,47 @@ DEFAULT_SILVER_FACTS_PATH = os.path.join("data", "beliefbank", "silver_facts.jso
 DEFAULT_AUGMENTED_RULES_PATH = os.path.join("data", "beliefbank", "beliefbank_augmented.json")
 
 
+def augmented_rules_to_sdd_constraints(rules_path: str) -> List[dict]:
+    """Convert compatible augmented rules (universal, equivalence) to legacy
+    SDD constraint format: {antecedent, consequent, s_antecedent, s_consequent}.
+    Equivalence rules are decomposed into two directed implications."""
+    augmented = normalize_augmented_rules(rules_path)
+    sdd_links = []
+    for rule in augmented:
+        if rule["rule_type"] == "universal":
+            ant = rule["antecedents"][0]
+            con = rule["consequents"][0]
+            sdd_links.append({
+                "antecedent": ant["predicate"],
+                "consequent": con["predicate"],
+                "s_antecedent": ant["positive"],
+                "s_consequent": con["positive"],
+            })
+        elif rule["rule_type"] == "equivalence":
+            left = rule["antecedents"][0]
+            right = rule["consequents"][0]
+            sdd_links.append({
+                "antecedent": left["predicate"],
+                "consequent": right["predicate"],
+                "s_antecedent": left["positive"],
+                "s_consequent": right["positive"],
+            })
+            sdd_links.append({
+                "antecedent": right["predicate"],
+                "consequent": left["predicate"],
+                "s_antecedent": right["positive"],
+                "s_consequent": left["positive"],
+            })
+    seen = set()
+    deduplicated = []
+    for link in sdd_links:
+        key = json.dumps(link, sort_keys=True)
+        if key not in seen:
+            seen.add(key)
+            deduplicated.append(link)
+    return deduplicated
+
+
 def get_dataset(model_type: str, config: dict | None = None):
     """ Load and parse from file to torch.Dataset """
     config = config or {}
@@ -27,6 +68,20 @@ def get_dataset(model_type: str, config: dict | None = None):
 
     # Data loading
     constraints = Constraints(constraints_path=constraints_path, model_type=model_type)
+
+    # Merge augmented rules into SDD constraints when applicable
+    if logic_backend in ("sdd", "hybrid") and rule_source in ("augmented", "hybrid"):
+        extra_links = augmented_rules_to_sdd_constraints(rules_path)
+        existing_keys = {json.dumps(s, sort_keys=True) for s in constraints.samples}
+        merged = 0
+        for link in extra_links:
+            key = json.dumps(link, sort_keys=True)
+            if key not in existing_keys:
+                constraints.samples.append(link)
+                existing_keys.add(key)
+                merged += 1
+        print(f"[!] SDD constraints: {len(constraints.samples)} total ({merged} merged from augmented rules)")
+
     silver_facts = Facts(constraints=constraints, facts_path=silver_facts_path, model_type=model_type)
     calibration_facts = Facts(constraints=constraints, facts_path=calibration_facts_path, model_type=model_type)
     silver_splits = silver_facts.get_splits()
@@ -45,8 +100,8 @@ def get_dataset(model_type: str, config: dict | None = None):
 
     data = {
         "constraints": {
-            "train": train_constraints, # grounded
-            "all": constraints, # set of links
+            "train": train_constraints,
+            "all": constraints,
         },
         "facts": {
             "calibration": {
@@ -63,49 +118,62 @@ def get_dataset(model_type: str, config: dict | None = None):
         }
     }
 
-    if logic_backend == "ltn":
-        templates, uncountables = Facts.get_language_templates(
-            templates_path=os.path.join("data", "beliefbank", "templates.json"),
-            uncountables_path=os.path.join("data", "beliefbank", "non_countable.txt"),
-        )
-        normalized_rules = get_normalized_rules(
-            constraints_path=constraints_path,
-            rules_path=rules_path,
-            rule_source=rule_source,
-        )
-        data["rules"] = {
-            "all": normalized_rules,
-            "train": TorchDataset(
-                ground_rules(
-                    rules=normalized_rules,
-                    facts=calibration_splits["train"],
-                    templates=templates,
-                    uncountables=uncountables,
-                )
+    # Always load LTN rules for unified evaluation across all backends
+    templates, uncountables = Facts.get_language_templates(
+        templates_path=os.path.join("data", "beliefbank", "templates.json"),
+        uncountables_path=os.path.join("data", "beliefbank", "non_countable.txt"),
+    )
+    normalized_rules = get_normalized_rules(
+        constraints_path=constraints_path,
+        rules_path=rules_path,
+        rule_source=rule_source,
+    )
+
+    # Determine which rules are used for training vs eval
+    all_rules_for_eval = normalized_rules
+    if logic_backend == "hybrid":
+        complex_types = {"and_implies", "or_implies", "xor"}
+        train_ltn_rules = [r for r in normalized_rules if r["rule_type"] in complex_types]
+        print(f"[!] Hybrid: {len(train_ltn_rules)} complex rules for LTN, "
+              f"{len(normalized_rules) - len(train_ltn_rules)} binary rules handled by SDD")
+    elif logic_backend == "sdd":
+        train_ltn_rules = []
+    else:
+        train_ltn_rules = normalized_rules
+
+    data["rules"] = {
+        "all": all_rules_for_eval,
+        "train": TorchDataset(
+            ground_rules(
+                rules=train_ltn_rules,
+                facts=calibration_splits["train"],
+                templates=templates,
+                uncountables=uncountables,
+            )
+        ) if train_ltn_rules else TorchDataset([]),
+        "val": {
+            "calibration": ground_rules(
+                rules=all_rules_for_eval,
+                facts=calibration_splits["val"],
+                templates=templates,
+                uncountables=uncountables,
             ),
-            "val": {
-                "calibration": ground_rules(
-                    rules=normalized_rules,
-                    facts=calibration_splits["val"],
-                    templates=templates,
-                    uncountables=uncountables,
-                ),
-            },
-            "test": {
-                "calibration": ground_rules(
-                    rules=normalized_rules,
-                    facts=calibration_facts.get_whole_set(),
-                    templates=templates,
-                    uncountables=uncountables,
-                ),
-                "silver": ground_rules(
-                    rules=normalized_rules,
-                    facts=silver_facts.get_whole_set(),
-                    templates=templates,
-                    uncountables=uncountables,
-                ),
-            },
-        }
+        },
+        "test": {
+            "calibration": ground_rules(
+                rules=all_rules_for_eval,
+                facts=calibration_facts.get_whole_set(),
+                templates=templates,
+                uncountables=uncountables,
+            ),
+            "silver": ground_rules(
+                rules=all_rules_for_eval,
+                facts=silver_facts.get_whole_set(),
+                templates=templates,
+                uncountables=uncountables,
+            ),
+        },
+    }
 
     return data
 
@@ -257,7 +325,7 @@ class Constraints(data.Dataset):
         self.samples = Constraints.get_links(path=constraints_path)
         self.model_type = model_type
 
-    def get_grounded_constraints(self, facts:dict, path:str) -> List[object]:
+    def get_grounded_constraints(self, facts:dict, path:str=None) -> List[object]:
         """ Istantiate links into constraints for each subject (using a fact split)
             Returns:
                 samples:List[object]    {antecedent, consequent, s_antecedent, s_consequent, g_antecedent, g_consequent} 
@@ -269,10 +337,10 @@ class Constraints(data.Dataset):
         templates, uncountables = Facts.get_language_templates(
             templates_path=os.path.join("data", "beliefbank", "templates.json"), 
             uncountables_path=os.path.join("data", "beliefbank", "non_countable.txt"))
-        # Constraints
-        general_constraints = Constraints.get_links(path)
+        # Use in-memory samples (includes merged augmented rules)
+        general_constraints = self.samples
         samples = []
-        for constraint in general_constraints: # for each principle
+        for constraint in general_constraints:
             knows_antecedent = constraint["antecedent"] in hash_facts.keys()
             knows_consequent = constraint["consequent"] in hash_facts.keys()
             # include grounded fact symbols if known in the training facts set 

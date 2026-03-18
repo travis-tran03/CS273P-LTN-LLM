@@ -12,16 +12,11 @@
     "parallel": false,
     "quantization": true,
     "random_split": -1,
-    "logic_backend": "ltn",
+    "logic_backend": "sdd",
     "rule_source": "hybrid",
     "logic_weight": 1.0,
     "factual_weight": 1.0,
-    "implication_floor": 0.5,
     "compute_perplexity": false,
-    "rule_batch_size": 32,
-    "sat_agg_p": 2.0,
     "constraint_type": "all",
-    "lora_r": 8,
-    "prob_chunk_size": 8,
-    "max_train_rules": 2000
+    "lora_r": 8
 }
