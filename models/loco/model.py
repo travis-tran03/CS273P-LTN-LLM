@@ -89,6 +89,9 @@ class QA(nn.Module):
             "TinyLlama/TinyLlama-1.1B-intermediate-step-1195k-token-2.5T": {
                 "type": "decoder"
             },
+            "meta-llama/Llama-3.2-1B": {
+                "type": "decoder"
+            },
             "NousResearch/Llama-2-13b-hf": {
                 "type": "decoder"
             },
@@ -195,6 +198,12 @@ class QA(nn.Module):
                 transformers.AutoTokenizer.from_pretrained,
                 transformers.AutoModelForCausalLM.from_pretrained,
             ),
+            "meta-llama/Llama-3.2-1B": (
+                lambda x: x,
+                lambda x: x,
+                transformers.AutoTokenizer.from_pretrained,
+                transformers.AutoModelForCausalLM.from_pretrained,
+            ),
             "NousResearch/Llama-2-13b-hf": (
                 lambda x: x,
                 lambda x: x,
@@ -264,7 +273,7 @@ class QA(nn.Module):
                 self.model.config.use_cache = False
                 self.model = prepare_model_for_kbit_training(self.model)
                 self.tokenizer.pad_token = self.tokenizer.eos_token
-                self.tokenizer.padding_side = "right"
+                self.tokenizer.padding_side = "left"
                 peft_config = LoraConfig(
                     r=128,
                     lora_alpha=16,
@@ -387,9 +396,16 @@ class QA(nn.Module):
 
     def get_perplexity(self, data, window_size=512):
         """ Computes perplexity as in https://huggingface.co/docs/transformers/en/perplexity """
-        encodings = self.tokenizer("\n\n".join(data), return_tensors="pt")
-        # model configs
-        max_length = self.model.config.max_length
+        encodings = self.tokenizer("\n\n".join(data), return_tensors="pt", add_special_tokens=False, verbose=False)
+        # Prefer actual model context size; not all configs expose max_length.
+        max_length = getattr(self.model.config, "max_position_embeddings", None)
+        if max_length is None:
+            tokenizer_max_length = getattr(self.tokenizer, "model_max_length", None)
+            if tokenizer_max_length is not None and tokenizer_max_length < 10**8:
+                max_length = tokenizer_max_length
+            else:
+                max_length = window_size
+        max_length = min(max_length, window_size)
         seq_len = encodings.input_ids.size(1)
         nlls = []
         prev_end_loc = 0
