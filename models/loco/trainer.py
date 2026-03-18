@@ -695,15 +695,27 @@ class Trainer():
         train_facts = DataLoader(data["facts"]["calibration"]["train"], batch_size=self.batch_size, sampler=(DistributedSampler(data["facts"]["calibration"]["train"]) if self.run_parallel else None), shuffle=(not self.run_parallel))
         train_constraints = DataLoader(data["constraints"]["train"], batch_size=self.batch_size, sampler=(DistributedSampler(data["constraints"]["train"]) if self.run_parallel else None), shuffle=(not self.run_parallel))
         
-        # Subsample eval facts if max_eval_facts is set
-        max_eval_facts = self.config.get("max_eval_facts", -1)
+        # Entity-based subsampling with a dedicated RNG so every pipeline
+        # (base, LTN, SDD, hybrid) evaluates on the exact same facts.
+        max_eval_entities = self.config.get("max_eval_entities", -1)
+        _eval_rng = random.Random(42)
+
         def _maybe_subsample(dataset, label):
-            if max_eval_facts > 0 and len(dataset) > max_eval_facts:
-                indices = random.sample(range(len(dataset)), max_eval_facts)
-                subset = Subset(dataset, indices)
-                print(f"[!] Subsampled {label}: {max_eval_facts} / {len(dataset)}")
-                return subset
-            return dataset
+            if max_eval_entities <= 0:
+                return dataset
+            entity_to_indices: dict[str, list[int]] = {}
+            for idx in range(len(dataset)):
+                subj = dataset[idx]["subject"]
+                entity_to_indices.setdefault(subj, []).append(idx)
+            if len(entity_to_indices) <= max_eval_entities:
+                return dataset
+            chosen = _eval_rng.sample(sorted(entity_to_indices.keys()), max_eval_entities)
+            indices = []
+            for e in sorted(chosen):
+                indices.extend(entity_to_indices[e])
+            subset = Subset(dataset, indices)
+            print(f"[!] Subsampled {label}: {max_eval_entities} entities, {len(indices)} facts / {len(dataset)}")
+            return subset
 
         # Eval / test splits
         eval_calibration = _maybe_subsample(data["facts"]["calibration"]["complete"], "calibration eval facts")
