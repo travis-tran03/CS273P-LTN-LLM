@@ -26,6 +26,7 @@ class QA(nn.Module):
         gpu_id,
         model_hf_name="allenai/macaw-large",
         quantization: bool = False,
+        lora_r: int = 128,
         in_format: Callable = None,
         out_format: Callable = None,
         mod_factory: Callable = None,
@@ -38,179 +39,14 @@ class QA(nn.Module):
         self.use_table_truth = use_table_truth
 
         hf_models = {
-            "allenai/macaw-large": {
-                "type": "seq2seq"
-            },
-            "allenai/macaw-3b": {
-                "type": "seq2seq"
-            },
-            "google/t5-small-ssm-nq": {
-                "type": "seq2seq"
-            },
-            "google/t5-large-ssm-nq": {
-                "type": "seq2seq"
-            },
-            "google/flan-t5-small": {
-                "type": "seq2seq"
-            },
-            "google/t5-3b-ssm-nq": {
-                "type": "seq2seq"
-            },
-            "unc-nlp/lxmert-base-uncased": {
-                "type": "seq2seq"
-            },
-            "gpt2-medium": {
-                "type": "decoder"
-            },
-            "sharpbai/Llama-2-7b-chat": {
-                "type": "decoder"
-            },
-            "sharpbai/Llama-2-7b-hf": {
-                "type": "decoder"
-            },
-            "sharpbai/Llama-2-13b-hf": {
-                "type": "decoder"
-            },
-            "NousResearch/Llama-2-7b-chat-hf": {
-                "type": "decoder"
-            },
-            "mistralai/Mistral-7B-Instruct-v0.1": {
-                "type": "decoder"
-            },
-            "NousResearch/Llama-2-70b-chat-hf": {
-                "type": "decoder"
-            },
-            "NousResearch/Llama-2-7b-hf": {
-                "type": "decoder"
-            },
-            "NousResearch/Llama-2-70b-hf": {
-                "type": "decoder"
-            },
-            "TinyLlama/TinyLlama-1.1B-intermediate-step-1195k-token-2.5T": {
-                "type": "decoder"
-            },
             "meta-llama/Llama-3.2-1B": {
-                "type": "decoder"
-            },
-            "NousResearch/Llama-2-13b-hf": {
-                "type": "decoder"
-            },
-            "meta-llama/Llama-3.1-8B": {
                 "type": "decoder"
             },
         }
         self.hf_models = hf_models
 
         hf_mod_config = {
-            "allenai/macaw-large": (
-                in_format if in_format else in_f_macaw,
-                out_format if out_format else out_f_macaw,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForSeq2SeqLM.from_pretrained,
-            ),
-            "allenai/macaw-3b": (
-                in_format if in_format else in_f_macaw,
-                out_format if out_format else out_f_macaw,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForSeq2SeqLM.from_pretrained,
-            ),
-            "google/t5-small-ssm-nq": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.T5ForConditionalGeneration.from_pretrained,
-            ),
-            "google/flan-t5-small": (
-                in_format if in_format else in_f_flant5,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForSeq2SeqLM.from_pretrained,
-            ),
-            "gpt2-medium": (
-                in_format if in_format else in_f_flant5,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "google/t5-large-ssm-nq": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForSeq2SeqLM.from_pretrained,
-            ),
-            "google/t5-3b-ssm-nq": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForSeq2SeqLM.from_pretrained,
-            ),
-            "sharpbai/Llama-2-7b-chat": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "sharpbai/Llama-2-7b-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "NousResearch/Llama-2-7b-chat-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "sharpbai/Llama-2-13b-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "NousResearch/Llama-2-70b-chat-hf":(
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "mistralai/Mistral-7B-Instruct-v0.1": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "NousResearch/Llama-2-7b-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "NousResearch/Llama-2-70b-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "TinyLlama/TinyLlama-1.1B-intermediate-step-1195k-token-2.5T": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
             "meta-llama/Llama-3.2-1B": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "NousResearch/Llama-2-13b-hf": (
-                lambda x: x,
-                lambda x: x,
-                transformers.AutoTokenizer.from_pretrained,
-                transformers.AutoModelForCausalLM.from_pretrained,
-            ),
-            "meta-llama/Llama-3.1-8B": (
                 lambda x: x,
                 lambda x: x,
                 transformers.AutoTokenizer.from_pretrained,
@@ -252,8 +88,7 @@ class QA(nn.Module):
         self.gpu_id = gpu_id
 
         # Model
-        self.tokenizer = self.tok_factory(self.model_hf_name) if "t5-3b" not in self.model_hf_name \
-            else self.tok_factory("google/t5-xl-ssm-nq")
+        self.tokenizer = self.tok_factory(self.model_hf_name)
 
         if self.is_decoder():
             if quantization:
@@ -271,12 +106,16 @@ class QA(nn.Module):
                     torch_dtype=torch.bfloat16,
                 )
                 self.model.config.use_cache = False
-                self.model = prepare_model_for_kbit_training(self.model)
+                self.model = prepare_model_for_kbit_training(
+                    self.model,
+                    use_gradient_checkpointing=True,
+                    gradient_checkpointing_kwargs={"use_reentrant": False},
+                )
                 self.tokenizer.pad_token = self.tokenizer.eos_token
                 self.tokenizer.padding_side = "left"
                 peft_config = LoraConfig(
-                    r=128,
-                    lora_alpha=16,
+                    r=lora_r,
+                    lora_alpha=lora_r // 4 if lora_r >= 16 else lora_r,
                     target_modules=find_all_linear_names(self.model),
                     lora_dropout=0.05,
                     bias="none",
@@ -301,6 +140,9 @@ class QA(nn.Module):
         if self.tokenizer.pad_token is None:
             self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
             self.model.resize_token_embeddings(len(self.tokenizer))
+        if getattr(self.model, "generation_config", None) is not None:
+            self.model.generation_config.pad_token_id = self.tokenizer.pad_token_id
+            self.model.generation_config.eos_token_id = self.tokenizer.eos_token_id
 
         self.MAX_GEN_TOKENS = 4
         
@@ -317,7 +159,19 @@ class QA(nn.Module):
         """ Get model answers to (premise, hypothesis) formulas """
         self.model.eval()
         in_prompts = self.tokenizer(quests, padding=True, return_tensors="pt").to(self.gpu_id)
-        answers = self.tokenizer.batch_decode(self.model.generate(**in_prompts, do_sample=True, top_k = 50, top_p = 1.0, temperature = 1.0, max_new_tokens = self.MAX_GEN_TOKENS), skip_special_tokens=True)
+        answers = self.tokenizer.batch_decode(
+            self.model.generate(
+                **in_prompts,
+                do_sample=True,
+                top_k=50,
+                top_p=1.0,
+                temperature=1.0,
+                max_new_tokens=self.MAX_GEN_TOKENS,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+            ),
+            skip_special_tokens=True,
+        )
         return answers
 
     def infer_fact_prob(self, quests:List[str]):
@@ -363,7 +217,7 @@ class QA(nn.Module):
         """ Train: fine-tuning on ground single facts """
         self.model.train()
         ground_labels = [prompt_answer(type=self.get_model_type(), text=FALSETRUE[int(l)]) for l in labels]
-        return - torch.sum(
+        return - torch.mean(
                     torch.log(
                         gpt_get_target_probs(
                             model=self.model, 
