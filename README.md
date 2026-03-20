@@ -37,7 +37,6 @@ CS273P-LTN-LLM/
 │   └── beliefbank/         # BeliefBank dataset (downloaded during setup)
 ├── dataset/
 │   ├── beliefbank.py       # BeliefBank data loader and augmented-rule handling
-│   ├── conceptnet.py       # ConceptNet data loader
 │   └── dataset.py          # Base dataset utilities
 ├── models/
 │   └── loco/
@@ -52,7 +51,6 @@ CS273P-LTN-LLM/
 ├── scripts/
 │   ├── setup.sh            # Automated environment and data setup
 │   ├── generate_rules_llm.py  # LLM-based rule augmentation pipeline
-│   ├── get_conceptnet.py   # ConceptNet data extraction
 │   ├── train_llama.sh      # Example training launch script
 │   └── eval_llama.sh       # Example evaluation launch script
 ├── results/                # JSON evaluation outputs
