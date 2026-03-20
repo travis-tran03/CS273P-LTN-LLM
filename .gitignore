@@ -11,3 +11,4 @@ data/beliefbank/beliefbank_augmented3.json
 data/beliefbank/beliefbank_augmented5.json
 __pycache__/
 *.pyc
+experiment.ipynb
