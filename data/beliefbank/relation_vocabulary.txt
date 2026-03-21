@@ -1,0 +1,601 @@
+CapableOf,act finicky
+CapableOf,act irrational
+CapableOf,act playful
+CapableOf,answer to master
+CapableOf,bark
+CapableOf,bark at strangers
+CapableOf,become pet
+CapableOf,belong human
+CapableOf,bite
+CapableOf,blossom
+CapableOf,branch in several directions
+CapableOf,branch into leaves
+CapableOf,branch off and get bigger
+CapableOf,branch out
+CapableOf,breath in water
+CapableOf,breathe
+CapableOf,breed several puppies
+CapableOf,bring master bone
+CapableOf,bud
+CapableOf,bury bone in ground
+CapableOf,carry man to water
+CapableOf,carry person
+CapableOf,carry person on back
+CapableOf,case mouse
+CapableOf,cast shadow
+CapableOf,catch bird
+CapableOf,catch mouse
+CapableOf,catch rat
+CapableOf,cause rabbit to run away
+CapableOf,chase ball
+CapableOf,chase mice
+CapableOf,chase tail
+CapableOf,chasing ball
+CapableOf,chirp
+CapableOf,circle tree
+CapableOf,clean face
+CapableOf,clean itself often
+CapableOf,clean themselves
+CapableOf,cleaning itself
+CapableOf,climb up tree
+CapableOf,come home
+CapableOf,come to master
+CapableOf,come when call name
+CapableOf,company man
+CapableOf,corner cat
+CapableOf,corner mouse
+CapableOf,corner rat
+CapableOf,cover hole in ground
+CapableOf,cross street
+CapableOf,delight person
+CapableOf,die from pollution
+CapableOf,die no more than once
+CapableOf,die out of water
+CapableOf,dig up bone
+CapableOf,drink liquids
+CapableOf,drink milk
+CapableOf,drink water
+CapableOf,drink when led to water
+CapableOf,drop leaves
+CapableOf,drop petals
+CapableOf,eat bird
+CapableOf,eat cat food
+CapableOf,eat cat food but probably shouldn't
+CapableOf,eat fish
+CapableOf,eat mice
+CapableOf,eat plankton
+CapableOf,eating
+CapableOf,enjoy food
+CapableOf,enjoy to take nap
+CapableOf,enter doghouse
+CapableOf,equal feline
+CapableOf,eye mouse
+CapableOf,fancy certain foods over others
+CapableOf,father puppy
+CapableOf,feed it's babies
+CapableOf,fetch ball
+CapableOf,fight another dog
+CapableOf,fight cat
+CapableOf,fight dog
+CapableOf,fight for life
+CapableOf,find food
+CapableOf,find food to eat
+CapableOf,fish with paw
+CapableOf,flower annually
+CapableOf,flower room
+CapableOf,fly
+CapableOf,follow it's owner
+CapableOf,follow master
+CapableOf,follow person
+CapableOf,following mouse
+CapableOf,following owner
+CapableOf,frighten intruders
+CapableOf,further grow
+CapableOf,get mouse
+CapableOf,get wet
+CapableOf,give nectar to hummingbirds
+CapableOf,go into stall
+CapableOf,grow
+CapableOf,grow branch
+CapableOf,grow from bulb
+CapableOf,grow in garden
+CapableOf,grow leaves
+CapableOf,grow new branches
+CapableOf,grow to larger size
+CapableOf,guard building
+CapableOf,guard home
+CapableOf,guard house
+CapableOf,guard kittens
+CapableOf,guard property
+CapableOf,guide blind woman
+CapableOf,haul cart
+CapableOf,have roots
+CapableOf,hear mouse near
+CapableOf,hear whistle
+CapableOf,hear whistling
+CapableOf,help master
+CapableOf,hide in shell
+CapableOf,hide under bed
+CapableOf,holding bee
+CapableOf,hunt cat
+CapableOf,hunt for mice
+CapableOf,hunt for mice in yard
+CapableOf,hunt lizards
+CapableOf,hunt mice
+CapableOf,injur it's wing if falls
+CapableOf,jump across fence
+CapableOf,jump barrier
+CapableOf,jump fence
+CapableOf,jump hedge
+CapableOf,jump high
+CapableOf,kill bird
+CapableOf,kill mouse
+CapableOf,land on all four paws
+CapableOf,lead police to dead body
+CapableOf,learn to do tricks
+CapableOf,learn to fetch things
+CapableOf,lie down
+CapableOf,lie down after eating
+CapableOf,lie on mat
+CapableOf,lift mouse
+CapableOf,like tuna
+CapableOf,listen to master
+CapableOf,live
+CapableOf,live in bay
+CapableOf,live in dog house
+CapableOf,live in house
+CapableOf,live in lake
+CapableOf,live in ponds
+CapableOf,live in water or on land
+CapableOf,live long time
+CapableOf,live underwater
+CapableOf,live very deep in sea
+CapableOf,look bird
+CapableOf,look out window
+CapableOf,love master
+CapableOf,mark territory
+CapableOf,mark territory with urine
+CapableOf,mark tree
+CapableOf,mate
+CapableOf,meow
+CapableOf,mew
+CapableOf,miaow
+CapableOf,mother it's young
+CapableOf,mother kits
+CapableOf,mother kittens
+CapableOf,mother puppy
+CapableOf,move in wind
+CapableOf,move itself about
+CapableOf,navigate via polarised light
+CapableOf,need meal
+CapableOf,note food
+CapableOf,offer shade
+CapableOf,open
+CapableOf,outrun human
+CapableOf,passing field
+CapableOf,place bone in hole
+CapableOf,play fetch
+CapableOf,play frisbee
+CapableOf,play with ball
+CapableOf,play with bone
+CapableOf,please master
+CapableOf,produce kittens
+CapableOf,provide shelter
+CapableOf,pull buggy
+CapableOf,pull cart
+CapableOf,pull large logs to pile
+CapableOf,pull wagon
+CapableOf,put paw on knee
+CapableOf,rain leaves
+CapableOf,rain pollen
+CapableOf,remember basic commands
+CapableOf,rest all day
+CapableOf,run
+CapableOf,run away
+CapableOf,run away from master
+CapableOf,run quickly
+CapableOf,school in large groups
+CapableOf,scratch
+CapableOf,scratch furniture
+CapableOf,scratch if annoy
+CapableOf,scratch on scratching post
+CapableOf,see at night
+CapableOf,see in dark
+CapableOf,sense danger
+CapableOf,sense fear
+CapableOf,shade from sun
+CapableOf,shade us in summer
+CapableOf,sing to mate
+CapableOf,sing to other birds
+CapableOf,sit in window
+CapableOf,sleep
+CapableOf,sleep all day
+CapableOf,sleep long time
+CapableOf,sleep most of day
+CapableOf,sleep most of time
+CapableOf,sleep on windowsill
+CapableOf,smell cooking meat
+CapableOf,smell fear
+CapableOf,smell food
+CapableOf,smell nice
+CapableOf,smell scents
+CapableOf,smell trace of another dog
+CapableOf,spread petals
+CapableOf,spread wings
+CapableOf,stand on two legs
+CapableOf,stay in house
+CapableOf,stay in place
+CapableOf,stay inside house
+CapableOf,stay on lap
+CapableOf,stray
+CapableOf,suffering dehydration
+CapableOf,sun itself
+CapableOf,sun themselves in window
+CapableOf,swim
+CapableOf,swim in river
+CapableOf,taste dog food
+CapableOf,think about food
+CapableOf,touch leg
+CapableOf,travel across world
+CapableOf,understand simple commands
+CapableOf,urinate
+CapableOf,very good companion
+CapableOf,wag tail
+CapableOf,wait for rat
+CapableOf,walk down street
+CapableOf,walk on four legs
+CapableOf,walk on leash
+CapableOf,wash itself
+CapableOf,wash itself with tongue
+CapableOf,watch mouse
+CapableOf,wear collar
+CapableOf,wear saddle
+CapableOf,win race
+HasA,6 legs
+HasA,bark around outside of
+HasA,bones
+HasA,brains
+HasA,claws
+HasA,distinctive fishy smell
+HasA,eyes
+HasA,feathers
+HasA,fin
+HasA,fleas
+HasA,four legs
+HasA,fur
+HasA,gills
+HasA,gills which allow breathing water
+HasA,hair
+HasA,hard shell
+HasA,leaves
+HasA,leaves in summer
+HasA,leaves on branches
+HasA,litter of kittens
+HasA,no legs
+HasA,nose
+HasA,one mouth
+HasA,paws
+HasA,roots
+HasA,roots branches leaves and trunk
+HasA,scales
+HasA,sharp claws
+HasA,sharp teeth
+HasA,shell
+HasA,shield
+HasA,tail
+HasA,teeth
+HasA,two ears
+HasA,two legs
+HasA,two wings
+HasA,whiskers
+HasA,wings
+HasPart,abdomen
+HasPart,air sac
+HasPart,bark
+HasPart,beak
+HasPart,bird's foot
+HasPart,body part
+HasPart,burl
+HasPart,carapace
+HasPart,carpel
+HasPart,cell
+HasPart,clypeus
+HasPart,crown
+HasPart,face
+HasPart,feather
+HasPart,fish scale
+HasPart,fishbone
+HasPart,floral leaf
+HasPart,foal
+HasPart,gaskin
+HasPart,hair
+HasPart,head
+HasPart,horse's foot
+HasPart,horseback
+HasPart,horsemeat
+HasPart,lateral line
+HasPart,leaf
+HasPart,legs
+HasPart,limb
+HasPart,milt
+HasPart,ovary
+HasPart,perianth
+HasPart,pistil
+HasPart,plastron
+HasPart,roe
+HasPart,root
+HasPart,stamen
+HasPart,stem
+HasPart,stump
+HasPart,tail
+HasPart,tail fin
+HasPart,talon
+HasPart,trunk
+HasPart,whisker
+HasPart,wing
+HasPart,withers
+HasProperty,alive
+HasProperty,growing taller
+HasProperty,hungry
+HasProperty,larger than cat
+HasProperty,one among many animals
+HasProperty,rising early
+HasProperty,running after mouse
+HasProperty,shiny
+HasProperty,sold fresh or frozen
+HasProperty,thirsty
+IsA,acid
+IsA,action
+IsA,africa
+IsA,air breathing vertebrate
+IsA,airplane
+IsA,american bison
+IsA,amniote
+IsA,anapsid
+IsA,angiosperm
+IsA,animal
+IsA,animal can ride on
+IsA,ant
+IsA,aquatic animal
+IsA,aquatic organism
+IsA,aquatic vertebrate
+IsA,art
+IsA,arthropod
+IsA,artifact
+IsA,asia
+IsA,baboon
+IsA,bacterium
+IsA,bathroom
+IsA,bicycle
+IsA,biped
+IsA,birch
+IsA,bird
+IsA,boat
+IsA,body of water
+IsA,bridge
+IsA,buck
+IsA,building
+IsA,bull
+IsA,bush
+IsA,cake
+IsA,calf
+IsA,camel
+IsA,candy
+IsA,canine
+IsA,car
+IsA,carbohydrate
+IsA,carnivore
+IsA,carp
+IsA,cat
+IsA,cheese
+IsA,cheetah
+IsA,chelonian
+IsA,chick
+IsA,chicken
+IsA,chimpanzee
+IsA,city
+IsA,clothes
+IsA,cock
+IsA,cockerel
+IsA,cold blooded animal
+IsA,company
+IsA,computer
+IsA,continent
+IsA,country
+IsA,creature
+IsA,crocodile
+IsA,crustacean
+IsA,daisy
+IsA,deer
+IsA,disease
+IsA,doctor
+IsA,dog
+IsA,dolphin
+IsA,domestic animal
+IsA,domestic ass
+IsA,domesticated animal
+IsA,domesticated canine
+IsA,door
+IsA,drug
+IsA,duck
+IsA,eagle
+IsA,earthworm
+IsA,elephant
+IsA,eukaryotic organism
+IsA,europe
+IsA,european wolf spider
+IsA,expert
+IsA,feathered animal
+IsA,feline
+IsA,fire
+IsA,fish
+IsA,flower
+IsA,flowering plant
+IsA,food
+IsA,forest
+IsA,four legged animal
+IsA,four legged hoofed mammal
+IsA,foxhound
+IsA,frog
+IsA,fruit
+IsA,fungus
+IsA,gazelle
+IsA,gecko
+IsA,german shepherd
+IsA,giant panda
+IsA,giraffe
+IsA,gladiolus
+IsA,government
+IsA,grass
+IsA,hair
+IsA,happy when wags tail
+IsA,heavier than person
+IsA,hen
+IsA,herb
+IsA,herd animal
+IsA,hippopotamus
+IsA,hoofed mammal
+IsA,horse
+IsA,hound
+IsA,house
+IsA,howler monkey
+IsA,human being
+IsA,hummingbird
+IsA,insect
+IsA,invertebrate
+IsA,jaguar
+IsA,jellyfish
+IsA,jewelry
+IsA,kitchen
+IsA,kitchen utensil
+IsA,ladybug
+IsA,lake
+IsA,lamb
+IsA,larger than person
+IsA,leader
+IsA,leave in water
+IsA,leopard
+IsA,lifeform from ocean
+IsA,lion
+IsA,liquid
+IsA,livestock
+IsA,living creature
+IsA,living organism
+IsA,living thing
+IsA,lizard
+IsA,llama
+IsA,location
+IsA,machine
+IsA,magpie
+IsA,mammal
+IsA,meal
+IsA,metal
+IsA,midge
+IsA,mineral
+IsA,mink
+IsA,molecule
+IsA,movie
+IsA,mullet
+IsA,myna
+IsA,new world blackbird
+IsA,oak
+IsA,ocean
+IsA,one type of animal
+IsA,orchid
+IsA,organism
+IsA,oryx
+IsA,oviparous animal
+IsA,owl
+IsA,ox
+IsA,palm tree
+IsA,part of plant
+IsA,peacock
+IsA,penguin
+IsA,peony
+IsA,pet
+IsA,pigeon
+IsA,pine
+IsA,placental
+IsA,placental mammal
+IsA,planet
+IsA,plant
+IsA,plastic
+IsA,pleasant odor
+IsA,politician
+IsA,poodle
+IsA,porcupine
+IsA,president
+IsA,protein
+IsA,publication
+IsA,puppy
+IsA,quadriped
+IsA,quadruped
+IsA,rabbit
+IsA,rat
+IsA,religion
+IsA,reptile
+IsA,restaurant
+IsA,river
+IsA,road
+IsA,robin
+IsA,rodent
+IsA,room
+IsA,rose
+IsA,salad
+IsA,salamander
+IsA,school
+IsA,science
+IsA,seafood
+IsA,shop
+IsA,shrub
+IsA,small mammal
+IsA,small wild mammal
+IsA,snake
+IsA,soda
+IsA,sound
+IsA,soup
+IsA,sparrow
+IsA,sparrow hawk
+IsA,sport
+IsA,squirrel
+IsA,starling
+IsA,strong animal
+IsA,stronger than man
+IsA,structure
+IsA,student
+IsA,sugar
+IsA,tall plant
+IsA,tartaruga
+IsA,terrestrial organism
+IsA,tiger
+IsA,town
+IsA,toy
+IsA,tracheophyte
+IsA,tree
+IsA,tulip
+IsA,turkey
+IsA,turtle
+IsA,under water
+IsA,vegetable
+IsA,vehicle
+IsA,vertebrate
+IsA,very fast animal
+IsA,virus
+IsA,warm blooded animal
+IsA,wasp
+IsA,water
+IsA,whale
+IsA,wheel
+IsA,wild animal
+IsA,wine
+IsA,wood
+IsA,woody plant
+IsA,wren
+IsA,zebra
+MadeOf,cells
+MadeOf,cells molecules and atoms
+MadeOf,flesh and bones
+MadeOf,fur
+MadeOf,hair
+MadeOf,leaves
+MadeOf,wood

@@ -110,8 +110,13 @@ class ConstraintManager():
             p = probabilities[idx] # 4, 1 or 2, 1
             s = batch_symbols[idx] # 2, 1
             g = None if batch_facts is None else batch_facts[idx] # B, 2, 1
-            # get truth assignments and enumerate them if a subset is returned (works for 2 vars)
-            models = [m for m in (self.grounded_constraint(literals=s, ground_labels=g, constraint=constraint)).models()]
+            formula = self.grounded_constraint(literals=s, ground_labels=g, constraint=constraint)
+            if formula.is_false():
+                loss = -torch.log(torch.tensor(EPS)).unsqueeze(-1)
+                if batch_loss is None: batch_loss = loss
+                else: batch_loss = torch.concat((batch_loss, loss), dim=-1)
+                continue
+            models = [m for m in formula.models()]
             # Check and augment if keys are missing
             aug_models = []
             for m in models: aug_models.extend(generate_missing_assignments(d=m, keys=list(range(1, 5) if ConstraintManager.need_negations(constraint) else range(1, 3))))

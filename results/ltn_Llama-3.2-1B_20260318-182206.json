@@ -1,0 +1,27 @@
+{
+  "model": "meta-llama/Llama-3.2-1B",
+  "logic_backend": "ltn",
+  "checkpoint": "checkpoints/epoch-2-ltn_Llama-3.2-1B",
+  "scores": {
+    "test/prompt0_calibration_f1": 0.1375921375921376,
+    "test/prompt0_calibration_negation_consistency": 0.1399253731343284,
+    "test/prompt0_calibration_avg_rule_satisfaction": 0.6285553861280798,
+    "test/prompt0_calibration_antecedents_f1": 0.02,
+    "test/prompt0_calibration_consequents_f1": 0.11888111888111888,
+    "test/prompt0_silver_f1": 0.13279132791327913,
+    "test/prompt0_silver_negation_consistency": 0.12035559607932533,
+    "test/prompt0_silver_avg_rule_satisfaction": 0.6933712940950082,
+    "test/prompt0_silver_antecedents_f1": 0.05421686746987952,
+    "test/prompt0_silver_consequents_f1": 0.14186851211072665,
+    "test/prompt1_calibration_f1": 0.42701525054466233,
+    "test/prompt1_calibration_negation_consistency": 0.5018656716417911,
+    "test/prompt1_calibration_avg_rule_satisfaction": 0.6192557798870225,
+    "test/prompt1_calibration_antecedents_f1": 0.11192214111922141,
+    "test/prompt1_calibration_consequents_f1": 0.765375854214123,
+    "test/prompt1_silver_f1": 0.3776183644189383,
+    "test/prompt1_silver_negation_consistency": 0.5049008434009574,
+    "test/prompt1_silver_avg_rule_satisfaction": 0.6706478033921207,
+    "test/prompt1_silver_antecedents_f1": 0.10645933014354067,
+    "test/prompt1_silver_consequents_f1": 0.7109004739336493
+  }
+}
