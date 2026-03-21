@@ -15,3 +15,4 @@ data/beliefbank/relation_vocabulary.txt
 data/beliefbank/silver_facts.json
 __pycache__/
 *.pyc
+experiment.ipynb
