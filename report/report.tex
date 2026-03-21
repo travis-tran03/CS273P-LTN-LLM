@@ -85,7 +85,7 @@ with factual supervision.
 \subsection{Problem Definition and Motivation}
 
 Large language models pick up broad factual knowledge during pretraining,
-but they are prone to \emph{logical self-contradiction} across related
+but they are prone to logical self-contradiction across related
 facts~\cite{kassner2021beliefbank}.  An LLM might correctly state that
 ``a dog is a mammal'' and ``a mammal is warm-blooded,'' yet deny that
 ``a dog is warm-blooded.''  Each answer is plausible on its own; taken
@@ -94,9 +94,9 @@ together, they violate a simple transitivity rule.
 Current fixes sit at two extremes.  Full-scale fine-tuning is expensive
 and risks catastrophic forgetting.  Offloading reasoning to an external
 symbolic solver is brittle and breaks end-to-end differentiability.  We
-propose a middle ground using \emph{Logic Tensor Networks} (LTNs).  LTNs
+propose a middle ground using Logic Tensor Networks (LTNs).  LTNs
 are a neuro-symbolic framework that turns first-order logic formulas into
-differentiable tensor computations.  They rely on \emph{fuzzy logic}, a
+differentiable tensor computations.  They rely on fuzzy logic, a
 generalisation of classical Boolean logic where truth values range
 continuously over $[0,1]$ instead of being strictly true or false.  By
 using LTN constraint satisfaction as a training signal, we can steer the
@@ -115,13 +115,13 @@ disjunction, equivalence)?
 \paragraph{Logically Consistent LMs (LoCo-LM).}
 Calanzone et al.~\cite{calanzone2025loco} introduce a neuro-symbolic loss
 that enforces implication and negation constraints on BeliefBank using
-\emph{Sentential Decision Diagrams} (SDDs).  An SDD is a compact data
+Sentential Decision Diagrams (SDDs).  An SDD is a compact data
 structure that represents a Boolean function as a directed acyclic graph.
 It supports conjunction, disjunction, negation, and model counting in
 time polynomial in the diagram size.  Their loss enumerates every
 satisfying assignment of a propositional formula compiled into an SDD and
 penalises the LLM for placing probability mass on unsatisfying worlds.
-SDDs are principled, but they are strictly \emph{propositional}: they
+SDDs are principled, but they are strictly propositional. They
 cannot express quantified rules, and diagram size can blow up
 exponentially for constraints like XOR or multi-antecedent conjunctions.
 
@@ -129,10 +129,10 @@ exponentially for constraints like XOR or multi-antecedent conjunctions.
 LTN~\cite{badreddine2022ltn} is a framework for differentiable
 first-order logic.  It represents logical formulas through fuzzy semantics
 over real-valued tensors.  Quantified rules are aggregated with the
-\emph{pMeanError} operator, a differentiable generalisation of the
+pMeanError operator, a differentiable generalisation of the
 universal quantifier that focuses gradient pressure on the
 least-satisfied groundings.  The LTNtorch library~\cite{ltntorch2024}
-provides a stable ``product configuration'': the product t-norm for
+provides a stable ``product configuration'' using the product t-norm for
 conjunction (truth values are multiplied), probabilistic sum for
 disjunction, and Reichenbach implication.  This combination is
 well-suited to gradient-based optimisation.
@@ -176,8 +176,7 @@ types not expressible as simple binary implications:
   \item \textbf{OR-implies}: a disjunction of antecedents implies a
         consequent;
   \item \textbf{Equivalence}: two predicates are logically equivalent;
-  \item \textbf{Universal}: a single-antecedent implication (same form as
-        legacy rules, but discovered via augmentation).
+  \item \textbf{Universal}: a single-antecedent implication.
 \end{itemize}
 We generate these rules by prompting an LLM with the full truth table of
 each entity's predicates and then validate them against the silver-fact
@@ -186,7 +185,7 @@ used for both LTN and hybrid training and for evaluation across all
 configurations.
 
 \paragraph{Data splits.}
-Train/validation/test splits are done \emph{by entity} (not randomly by
+Train/validation/test splits are done by entity (not randomly by
 fact) so that generalisation is tested on unseen entities.  In practice,
 antecedent predicates form the training set and consequent-only predicates
 form the test set, with 10\% of the antecedent facts held out for
@@ -326,7 +325,7 @@ satisfying worlds and gives a stronger training signal.
 
 \subsubsection{LTN Fuzzy Logic Evaluation}
 
-We use the \emph{stable product configuration} from
+We use the stable product configuration from
 LTNtorch~\cite{ltntorch2024}.  Every truth value is clamped to
 $[\epsilon, 1{-}\epsilon]$ before each operation so that gradients do not
 vanish.
@@ -540,8 +539,8 @@ mini-batch.  The three terms are summed and backpropagated jointly.
 \subsection{Evaluation Metrics}
 \label{sec:metrics}
 
-We evaluate along two axes: \emph{factual accuracy} and \emph{logical
-consistency}.
+We evaluate along two axes: factual accuracy and logical
+consistency.
 
 \paragraph{Factual accuracy.}
 \begin{itemize}[nosep]
@@ -569,7 +568,7 @@ Given a constraint $A \Rightarrow B$:
 \end{itemize}
 
 \paragraph{Rule satisfaction (LTN-based).}
-\emph{Average rule satisfaction} is the mean fuzzy truth value across all
+Average rule satisfaction is the mean fuzzy truth value across all
 applicable grounded rules, using the model's binary beliefs as crisp
 inputs.  It tells us how well the model respects the full augmented rule
 set, including complex rules that the SDD metrics cannot capture.
@@ -773,8 +772,7 @@ Consequents F1              & 0.23  & 0.43  & \textbf{0.72} & 0.60 \\
 \subsection{SDD Dominance on Factuality and Consistency}
 
 The SDD-only model leads on every factuality and consistency metric.  Its
-semantic loss (\cref{eq:sdd}) works in an \emph{exact probabilistic}
-regime: it enumerates all satisfying worlds, so the gradient signal is
+semantic loss (\cref{eq:sdd}) works in an exact probabilistic regime. It enumerates all satisfying worlds, so the gradient signal is
 precise.  The loss also conditions on ground-truth labels when they are
 available, which effectively folds factual supervision and logical
 regularisation into one term.  A large batch size (128) keeps gradient
@@ -784,7 +782,7 @@ the model converge within the 3-epoch budget.
 \subsection{LTN Convergence Failure}
 
 The LTN-only model performs worst among the trained configurations.  Its
-F1 actually \emph{drops below the untrained base} on prompt~0
+F1 actually drops below the untrained base on prompt~0
 (0.14 vs.\ 0.18).  We trace this to three interacting causes:
 
 \paragraph{Logic weight sensitivity.}
@@ -796,7 +794,7 @@ example, makes most implications trivially true because the antecedent is
 false, but it destroys factual accuracy.
 
 Setting the logic weight lower (e.g.\ $\lambda_{\text{ltn}}{=}1$)
-produces the opposite problem: not enough constraint pressure, and the
+produces the opposite problem. Not enough constraint pressure, and the
 model converges to a purely factual solution with no logical gain.
 Finding the right balance proved difficult within our hyperparameter
 budget.
@@ -820,8 +818,8 @@ The hybrid model reaches the \textbf{highest average rule satisfaction}
 (0.70 on calibration, 0.69 on silver).  This confirms that the LTN
 component adds meaningful gradient signal for complex rules SDDs cannot
 handle.  On the other hand, factuality (F1\,=\,0.74 on calibration) and
-consistency fall short of SDD-only.  We attribute this to \emph{loss
-interference}: three loss terms ($\SL$, $\LTNloss$, $\Lfact$) compete
+consistency fall short of SDD-only.  We attribute this to loss
+interference. Three loss terms ($\SL$, $\LTNloss$, $\Lfact$) compete
 for the limited capacity of the LoRA adapters ($r{=}8$).  The LTN loss
 sometimes pushes probabilities in directions that conflict with the SDD
 signal.
@@ -912,8 +910,8 @@ the cost of lower factuality compared to SDD alone.  LTN-only failed to
 converge, largely because of sensitivity to the logic-weight
 hyperparameter and the small batch sizes forced by memory limits.
 
-The takeaway is that \emph{exact} probabilistic constraints (SDDs) still
-beat \emph{approximate} fuzzy methods (LTNs) when the rules fit in
+The takeaway is that exact probabilistic constraints (SDDs) still
+beat approximate fuzzy methods (LTNs) when the rules fit in
 propositional logic.  For richer first-order rules that SDDs cannot
 handle efficiently, the hybrid approach is a workable alternative.
 Future work should explore curriculum-based weight scheduling,
