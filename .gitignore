@@ -10,6 +10,4 @@ wandb/
 logs/
 __pycache__/
 *.pyc
-*.tar.gz
-data/datasets.tar.gz
 experiment.ipynb
